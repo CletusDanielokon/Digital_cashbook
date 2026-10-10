@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>CashBook - Settings</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <!-- Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="./output.css" rel="stylesheet">
+
+    <!-- Tailwind Colors -->
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: { extend: {
+                fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
+                colors: { navy: "#0f172a", green: "#22c55e" }
+            } }
+        };
+    </script>
+
+    <!-- Theme (unchanged behaviour) -->
+    <script>
+        if (localStorage.getItem("cashbookTheme") === "dark") {
+            document.documentElement.classList.add("dark");
+        }
+    </script>
+
+    <!-- Reusable styles: edit colours and sizes here -->
+    <style type="text/tailwindcss">
+        @layer components {
+            .card { @apply bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/70 shadow-sm transition duration-200; }
+            .card-hover:hover { @apply -translate-y-0.5 shadow-md; }
+            .field-label { @apply block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5; }
+            .field {
+                @apply w-full h-11 px-3.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-slate-100
+                       placeholder:text-slate-400 dark:placeholder:text-slate-500 transition duration-150 focus:outline-none focus:border-green focus:ring-4 focus:ring-green/15;
+                color-scheme: light;
+            }
+            .dark .field { color-scheme: dark; }
+            .btn { @apply inline-flex items-center justify-center gap-2 h-11 px-4 rounded-lg text-sm font-semibold transition duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30; }
+            .btn-primary { @apply btn bg-green text-white hover:bg-[#16a34a]; }
+            .btn-dark { @apply btn bg-navy text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600; }
+            .btn-outline { @apply btn border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60; }
+            .menu-link { @apply relative w-full flex items-center gap-3 px-4 h-11 rounded-lg text-sm font-medium text-slate-300 transition duration-150 hover:bg-white/5 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-green/60; }
+            .menu-link i { @apply w-5 text-center text-slate-400 transition-colors duration-150; }
+            .menu-link:hover i { @apply text-slate-200; }
+            .menu-link.active { @apply bg-green/10 text-white; }
+            .menu-link.active i { @apply text-green; }
+            .menu-link.active::before { content: ""; @apply absolute left-0 top-2 bottom-2 w-1 rounded-full bg-green; }
+            .badge-icon { @apply w-10 h-10 rounded-lg flex items-center justify-center text-base; }
+        }
+        body { font-family: "Inter", system-ui, sans-serif; }
+        #transactionModal { margin: auto; max-height: 92vh; }
+        #transactionModal::backdrop { background: rgb(15 23 42 / .6); backdrop-filter: blur(2px); }
+        #recent-transactions > * { min-width: 0; overflow-wrap: anywhere; }
+        #recent-transactions > div:hover { background-color: rgb(248 250 252 / .8); }
+        .dark #recent-transactions > div:hover { background-color: rgb(51 65 85 / .25); }
+        #recent-transactions > p { padding: 2.5rem 1.25rem; text-align: center; font-size: .875rem; color: #64748b; }
+        @media (prefers-reduced-motion: reduce) { * { transition-duration: 0.01ms !important; } }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300 antialiased overflow-x-hidden">
+
+    <!-- ========================= -->
+    <!-- MOBILE OVERLAY -->
+    <!-- ========================= -->
+    <div id="mobile-overlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-[2px] z-40 hidden lg:hidden"></div>
+
+    <!-- ========================= -->
+    <!-- SIDEBAR -->
+    <!-- ========================= -->
+    <aside id="sidebar" class="fixed top-0 left-0 bottom-0 z-50 w-64 flex flex-col bg-navy dark:bg-slate-950 text-white transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out rounded-r-2xl lg:rounded-none border-r border-transparent dark:border-slate-800">
+
+        <!-- Logo -->
+        <div class="px-5 h-20 flex items-center border-b border-white/10">
+            <div class="flex w-full items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-green text-white shadow-sm"><i class="fa-solid fa-wallet"></i></div>
+                    <div>
+                        <h1 class="text-lg font-semibold leading-tight tracking-tight">CashBook</h1>
+                        <p class="text-xs text-slate-400 leading-tight mt-0.5">Personal Finance</p>
+                    </div>
+                </div>
+                <button id="close-menu" type="button" class="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition" aria-label="Close menu"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 px-3 py-4 overflow-y-auto space-y-1" aria-label="Main navigation">
+                <button type="button" onclick="goTo('dashboard.html')" class="menu-link"><i class="fa-solid fa-house"></i><span>Dashboard</span></button>
+                <button type="button" onclick="goTo('transactions.html')" class="menu-link"><i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transactions</span></button>
+                <button type="button" onclick="goTo('budget.html')" class="menu-link"><i class="fa-solid fa-bullseye"></i><span>Budget &amp; Goals</span></button>
+                <button type="button" onclick="goTo('reports.html')" class="menu-link"><i class="fa-solid fa-chart-pie"></i><span>Reports</span></button>
+                <button type="button" onclick="goTo('profile.html')" class="menu-link"><i class="fa-solid fa-user"></i><span>Profile</span></button>
+                <button type="button" onclick="goTo('settings.html')" class="menu-link active" aria-current="page"><i class="fa-solid fa-gear"></i><span>Settings</span></button>
+        </nav>
+
+        <!-- Bottom User -->
+        <div class="p-4 border-t border-white/10 space-y-3">
+            <div class="flex items-center gap-3 px-1">
+                <div id="sidebar-initials" class="w-10 h-10 rounded-full bg-green/15 text-green ring-1 ring-green/30 flex items-center justify-center text-sm font-semibold">C</div>
+                <div class="min-w-0">
+                    <p id="sidebar-name" class="font-medium text-white truncate text-sm">CashBook User</p>
+                    <p class="text-xs text-slate-400">CashBook User</p>
+                </div>
+            </div>
+            <button type="button" onclick="logout()" class="w-full flex items-center gap-3 px-4 h-11 rounded-lg text-sm font-medium text-slate-300 transition duration-150 hover:bg-red-500/10 hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60"><i class="fa-solid fa-right-from-bracket w-5 text-center"></i><span>Logout</span></button>
+        </div>
+    </aside>
+
+
+    <!-- ========================= -->
+    <!-- MAIN CONTENT -->
+    <!-- ========================= -->
+    <main class="lg:ml-64 min-h-screen min-w-0">
+
+        <!-- HEADER -->
+        <header class="sticky top-0 z-20 flex items-center justify-between h-16 sm:h-20 border-b border-slate-200 dark:border-slate-800 bg-white/85 dark:bg-slate-900/85 backdrop-blur px-4 sm:px-6 lg:px-8 transition-colors">
+            <div class="flex items-center gap-3 min-w-0">
+                <button id="open-menu" type="button" class="lg:hidden w-10 h-10 shrink-0 flex items-center justify-center rounded-lg bg-navy dark:bg-slate-800 text-white hover:bg-slate-700 transition" aria-label="Open menu"><i class="fa-solid fa-bars"></i></button>
+                <div class="min-w-0">
+                    <h2 class="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white truncate">Settings</h2>
+                    <p class="hidden sm:block text-sm text-slate-500 dark:text-slate-400 truncate">Manage your CashBook preferences</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 shrink-0">
+                <div id="header-initials" class="w-10 h-10 rounded-full bg-green/15 text-green ring-1 ring-green/30 flex items-center justify-center text-sm font-semibold">C</div>
+                <div class="hidden sm:block">
+                    <p id="header-name" class="text-sm font-medium text-slate-900 dark:text-slate-100 leading-tight">CashBook User</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Personal Account</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- SETTINGS CONTENT -->
+        <section class="p-4 sm:p-6 lg:p-8">
+            <div class="max-w-3xl mx-auto space-y-5">
+
+                <!-- ========================= -->
+                <!-- APPEARANCE -->
+                <!-- ========================= -->
+                <div class="card overflow-hidden">
+                    <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700/70">
+                        <h3 class="text-base font-semibold text-slate-900 dark:text-white">Appearance</h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Choose how CashBook looks on your device.</p>
+                    </div>
+                    <div class="p-4 sm:p-5">
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-4 min-w-0">
+                                <div class="badge-icon w-11 h-11 shrink-0 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200"><i id="theme-icon" class="fas fa-sun"></i></div>
+                                <div class="min-w-0">
+                                    <p class="font-medium text-slate-900 dark:text-white">Dark Mode</p>
+                                    <p id="theme-description" class="text-sm text-slate-500 dark:text-slate-400">Use dark mode throughout CashBook.</p>
+                                </div>
+                            </div>
+                            <!-- Theme Toggle -->
+                            <button id="theme-toggle" type="button" aria-label="Toggle dark mode" class="relative w-14 h-7 shrink-0 rounded-full bg-slate-300 dark:bg-green transition-colors focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30">
+                                <span id="theme-toggle-circle" class="absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow transition-transform"></span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========================= -->
+                <!-- ACCOUNT PROFILE -->
+                <!-- ========================= -->
+                <div class="card overflow-hidden">
+                    <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700/70">
+                        <h3 class="text-base font-semibold text-slate-900 dark:text-white">Account Profile</h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Update the information associated with your CashBook.</p>
+                    </div>
+                    <div class="p-4 sm:p-5">
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-4 min-w-0">
+                                <div id="settings-avatar" class="badge-icon w-11 h-11 shrink-0 bg-green/10 text-green overflow-hidden"><i class="fa-solid fa-user"></i></div>
+                                <div class="min-w-0">
+                                    <p id="settings-profile-name" class="font-medium text-slate-900 dark:text-white truncate">CashBook User</p>
+                                    <p id="settings-profile-email" class="text-sm text-slate-500 dark:text-slate-400 truncate">—</p>
+                                </div>
+                            </div>
+                            <button type="button" onclick="openEditProfileModal()" class="btn-dark h-10 shrink-0"><i class="fa-solid fa-pen text-xs"></i> Edit</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========================= -->
+                <!-- SECURITY -->
+                <!-- ========================= -->
+                <div class="card overflow-hidden">
+                    <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700/70">
+                        <h3 class="text-base font-semibold text-slate-900 dark:text-white">Security</h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Keep your CashBook account secure.</p>
+                    </div>
+                    <div class="p-4 sm:p-5 space-y-5">
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-4 min-w-0">
+                                <div class="badge-icon w-11 h-11 shrink-0 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200"><i class="fa-solid fa-lock"></i></div>
+                                <div class="min-w-0">
+                                    <p class="font-medium text-slate-900 dark:text-white">Password</p>
+                                    <p id="password-status" class="text-sm text-slate-500 dark:text-slate-400">Change your password at any time.</p>
+                                </div>
+                            </div>
+                            <button type="button" id="password-open-btn" onclick="openPasswordModal()" class="btn-outline h-10 shrink-0">Change</button>
+                        </div>
+                        <div class="flex items-center gap-4 min-w-0">
+                            <div class="badge-icon w-11 h-11 shrink-0 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200"><i class="fa-brands fa-google"></i></div>
+                            <div class="min-w-0">
+                                <p class="font-medium text-slate-900 dark:text-white">Google sign-in</p>
+                                <p id="google-status" class="text-sm text-slate-500 dark:text-slate-400">Checking...</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-4 min-w-0">
+                                <div class="badge-icon w-11 h-11 shrink-0 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200"><i class="fa-solid fa-envelope"></i></div>
+                                <div class="min-w-0">
+                                    <p class="font-medium text-slate-900 dark:text-white">Email verification</p>
+                                    <p id="email-verify-status" class="text-sm text-slate-500 dark:text-slate-400">Checking...</p>
+                                </div>
+                            </div>
+                            <button type="button" id="email-verify-btn" onclick="openVerifyModal('email')" class="btn-outline h-10 shrink-0 hidden">Verify</button>
+                        </div>
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-4 min-w-0">
+                                <div class="badge-icon w-11 h-11 shrink-0 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200"><i class="fa-solid fa-mobile-screen"></i></div>
+                                <div class="min-w-0">
+                                    <p class="font-medium text-slate-900 dark:text-white">Phone verification</p>
+                                    <p id="phone-verify-status" class="text-sm text-slate-500 dark:text-slate-400">Checking...</p>
+                                </div>
+                            </div>
+                            <button type="button" id="phone-verify-btn" onclick="openVerifyModal('phone')" class="btn-outline h-10 shrink-0 hidden">Verify</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========================= -->
+                <!-- ACCOUNT -->
+                <!-- ========================= -->
+                <div class="card overflow-hidden">
+                    <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700/70">
+                        <h3 class="text-base font-semibold text-slate-900 dark:text-white">Account</h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage your current CashBook session.</p>
+                    </div>
+                    <div class="p-4 sm:p-5">
+                        <button type="button" onclick="logout()" class="btn w-full sm:w-auto bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500 hover:text-white dark:hover:text-white focus-visible:ring-red-400/40">
+                            <i class="fa-solid fa-right-from-bracket text-xs"></i> Logout
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ========================= -->
+                <!-- YOUR DATA -->
+                <!-- ========================= -->
+                <div class="card overflow-hidden">
+                    <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700/70">
+                        <h3 class="text-base font-semibold text-slate-900 dark:text-white">Your Data</h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Download a copy of everything you have recorded.</p>
+                    </div>
+                    <div class="p-4 sm:p-5">
+                        <button type="button" id="export-btn" onclick="exportTransactionsCsv()" class="btn-outline w-full sm:w-auto">
+                            <i class="fa-solid fa-file-csv text-xs"></i> Export transactions (CSV)
+                        </button>
+                        <p id="export-status" class="text-sm text-slate-500 dark:text-slate-400 mt-3 hidden"></p>
+                    </div>
+                </div>
+
+                <!-- ========================= -->
+                <!-- DANGER ZONE -->
+                <!-- ========================= -->
+                <div class="card overflow-hidden border-red-200 dark:border-red-500/30">
+                    <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700/70">
+                        <h3 class="text-base font-semibold text-red-600 dark:text-red-400">Danger Zone</h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Permanently delete your account and every record in it. This cannot be undone.</p>
+                    </div>
+                    <div class="p-4 sm:p-5">
+                        <button type="button" onclick="openDeleteModal()" class="btn w-full sm:w-auto bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500 hover:text-white dark:hover:text-white focus-visible:ring-red-400/40">
+                            <i class="fa-solid fa-trash text-xs"></i> Delete my account
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+
+    <!-- ========================= -->
+    <!-- EDIT PROFILE MODAL -->
+    <!-- ========================= -->
+    <div id="edit-profile-modal" role="dialog" aria-modal="true" aria-labelledby="edit-profile-title" class="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-[60] hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-xl shadow-xl text-slate-800 dark:text-slate-100">
+            <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-9 h-9 shrink-0 rounded-lg bg-green/10 text-green flex items-center justify-center"><i class="fa-solid fa-user-pen"></i></div>
+                    <div class="min-w-0">
+                        <h3 id="edit-profile-title" class="text-lg font-semibold leading-tight truncate">Edit Profile</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Update your CashBook information</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeEditProfileModal()" class="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30" aria-label="Close"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <form id="edit-profile-form" class="p-5 space-y-4">
+                <p id="edit-profile-status" class="hidden text-sm font-semibold"></p>
+                <div>
+                    <label for="edit-full-name" class="field-label">Full Name</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
+                        <input type="text" id="edit-full-name" class="field pl-10" required>
+                    </div>
+                </div>
+                <div>
+                    <label for="edit-mobile" class="field-label">Mobile Number</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-phone absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
+                        <input type="tel" id="edit-mobile" class="field pl-10" required>
+                    </div>
+                </div>
+                <div>
+                    <label for="edit-email" class="field-label">Email Address</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
+                        <input type="email" id="edit-email" class="field pl-10 bg-slate-50 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300" readonly>
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1.5">Your email is your sign-in identity, so it cannot be changed here.</p>
+                </div>
+                <div>
+                    <label for="edit-book" class="field-label">CashBook Name</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-book absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
+                        <input type="text" id="edit-book" class="field pl-10" required>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="closeEditProfileModal()" class="btn-outline flex-1">Cancel</button>
+                    <button type="submit" id="edit-profile-submit" class="btn-primary flex-1"><i class="fa-solid fa-floppy-disk text-xs"></i> Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- ========================= -->
+    <!-- CHANGE PASSWORD MODAL -->
+    <!-- ========================= -->
+    <div id="password-modal" role="dialog" aria-modal="true" aria-labelledby="password-title" class="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-[60] hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-md max-h-[92vh] overflow-y-auto rounded-xl shadow-xl text-slate-800 dark:text-slate-100">
+            <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-9 h-9 shrink-0 rounded-lg bg-green/10 text-green flex items-center justify-center"><i class="fa-solid fa-lock"></i></div>
+                    <div class="min-w-0">
+                        <h3 id="password-title" class="text-lg font-semibold leading-tight truncate">Change Password</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Choose a new password</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closePasswordModal()" class="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30" aria-label="Close"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <form id="password-form" class="p-5 space-y-4">
+                <p id="password-form-status" class="hidden text-sm font-semibold"></p>
+
+                <p id="password-set-note" class="hidden text-sm text-slate-600 dark:text-slate-300 rounded-lg border border-green/20 bg-green/5 dark:bg-green/10 p-3">You signed up with Google, so you do not have a CashBook password yet. Set one to also log in with your email.</p>
+
+                <div id="current-password-wrap">
+                    <label for="current-password" class="field-label">Current Password</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
+                        <input type="password" id="current-password" autocomplete="current-password" class="field pl-10">
+                    </div>
+                </div>
+                <div>
+                    <label for="new-password" class="field-label">New Password</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-key absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
+                        <input type="password" id="new-password" autocomplete="new-password" minlength="6" class="field pl-10" required>
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1.5">At least 6 characters.</p>
+                </div>
+                <div>
+                    <label for="confirm-password" class="field-label">Confirm New Password</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-key absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
+                        <input type="password" id="confirm-password" autocomplete="new-password" minlength="6" class="field pl-10" required>
+                    </div>
+                </div>
+
+                <p id="forgot-current-wrap" class="text-sm text-slate-500 dark:text-slate-400">
+                    Forgot your current password?
+                    <button type="button" onclick="sendPasswordReset()" class="text-green font-semibold hover:underline">Email me a reset link</button>
+                </p>
+
+                <div class="flex gap-3 pt-1">
+                    <button type="button" onclick="closePasswordModal()" class="btn-outline flex-1">Cancel</button>
+                    <button type="submit" id="password-submit" class="btn-primary flex-1"><i class="fa-solid fa-floppy-disk text-xs"></i> Save Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- ========================= -->
+    <!-- DELETE ACCOUNT MODAL -->
+    <!-- ========================= -->
+    <div id="verify-modal" role="dialog" aria-modal="true" aria-labelledby="verify-title" class="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-[60] hidden items-center justify-center p-4">
+        <div class="w-full max-w-md card p-5 sm:p-6">
+            <div class="flex items-start justify-between mb-2">
+                <h2 id="verify-title" class="text-lg font-semibold text-slate-900 dark:text-white">Verify</h2>
+                <button type="button" onclick="closeVerifyModal()" class="w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Close"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <p id="verify-intro" class="text-sm text-slate-500 dark:text-slate-400 mb-3"></p>
+            <p id="verify-status" class="text-sm mb-3 font-semibold" role="status"></p>
+            <form id="verify-form" class="space-y-4">
+                <input type="text" id="verify-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" aria-label="6-digit verification code" class="field text-center text-2xl tracking-[0.5em] font-semibold" required>
+                <div class="flex gap-3">
+                    <button type="button" id="verify-resend" class="btn-outline flex-1" disabled>Resend code</button>
+                    <button type="submit" id="verify-submit" class="btn-primary flex-1">Verify</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-title" class="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-[60] hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-md max-h-[92vh] overflow-y-auto rounded-xl shadow-xl text-slate-800 dark:text-slate-100">
+            <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-9 h-9 shrink-0 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    <div class="min-w-0">
+                        <h3 id="delete-title" class="text-lg font-semibold leading-tight truncate">Delete Account</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">This cannot be undone</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeDeleteModal()" class="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30" aria-label="Close"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <form id="delete-form" class="p-5 space-y-4">
+                <p class="text-sm leading-6 text-slate-600 dark:text-slate-300">Your account, transactions, budget and savings goals will be permanently deleted from the database.</p>
+                <p id="delete-form-status" class="hidden text-sm font-semibold"></p>
+
+                <div id="delete-password-wrap">
+                    <label for="delete-password" class="field-label">Your Password</label>
+                    <div class="relative">
+                        <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
+                        <input type="password" id="delete-password" autocomplete="current-password" class="field pl-10">
+                    </div>
+                </div>
+                <div>
+                    <label for="delete-confirm" class="field-label">Type DELETE to confirm</label>
+                    <input type="text" id="delete-confirm" autocomplete="off" class="field" placeholder="DELETE" required>
+                </div>
+
+                <div class="flex gap-3 pt-1">
+                    <button type="button" onclick="closeDeleteModal()" class="btn-outline flex-1">Cancel</button>
+                    <button type="submit" id="delete-submit" class="btn flex-1 bg-red-500 text-white hover:bg-red-600"><i class="fa-solid fa-trash text-xs"></i> Delete Forever</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- JavaScript -->
+    <script src="settings.js"></script>
+    <script src="avatar.js"></script>
+
+    <!-- Sidebar close button (settings.js only handles open and overlay click) -->
+    <script>
+        document.getElementById("close-menu").addEventListener("click", () => {
+            document.getElementById("mobile-overlay").click();
+        });
+    </script>
+
+</body>
+</html>

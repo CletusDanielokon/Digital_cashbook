@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>CashBook - Reports</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <!-- Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="./output.css" rel="stylesheet">
+
+    <!-- Tailwind Colors -->
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: { extend: {
+                fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
+                colors: { navy: "#0f172a", green: "#22c55e" }
+            } }
+        };
+    </script>
+
+    <!-- Theme (unchanged behaviour) -->
+    <script>
+        if (localStorage.getItem("cashbookTheme") === "dark") {
+            document.documentElement.classList.add("dark");
+        }
+    </script>
+
+    <!-- Reusable styles: edit colours and sizes here -->
+    <style type="text/tailwindcss">
+        @layer components {
+            .card { @apply bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/70 shadow-sm transition duration-200; }
+            .card-hover:hover { @apply -translate-y-0.5 shadow-md; }
+            .field-label { @apply block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5; }
+            .field {
+                @apply w-full h-11 px-3.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-slate-100
+                       placeholder:text-slate-400 dark:placeholder:text-slate-500 transition duration-150 focus:outline-none focus:border-green focus:ring-4 focus:ring-green/15;
+                color-scheme: light;
+            }
+            .dark .field { color-scheme: dark; }
+            .btn { @apply inline-flex items-center justify-center gap-2 h-11 px-4 rounded-lg text-sm font-semibold transition duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30; }
+            .btn-primary { @apply btn bg-green text-white hover:bg-[#16a34a]; }
+            .btn-dark { @apply btn bg-navy text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600; }
+            .btn-outline { @apply btn border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60; }
+            .menu-link { @apply relative w-full flex items-center gap-3 px-4 h-11 rounded-lg text-sm font-medium text-slate-300 transition duration-150 hover:bg-white/5 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-green/60; }
+            .menu-link i { @apply w-5 text-center text-slate-400 transition-colors duration-150; }
+            .menu-link:hover i { @apply text-slate-200; }
+            .menu-link.active { @apply bg-green/10 text-white; }
+            .menu-link.active i { @apply text-green; }
+            .menu-link.active::before { content: ""; @apply absolute left-0 top-2 bottom-2 w-1 rounded-full bg-green; }
+            .range-chip { @apply h-9 px-3.5 rounded-full border border-slate-300 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-300 transition duration-150 hover:border-green hover:text-green focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30; }
+            .range-chip.active { @apply bg-green/10 border-green text-green; }
+            .badge-icon { @apply w-10 h-10 rounded-lg flex items-center justify-center text-base; }
+        }
+        body { font-family: "Inter", system-ui, sans-serif; }
+        #transactionModal { margin: auto; max-height: 92vh; }
+        #transactionModal::backdrop { background: rgb(15 23 42 / .6); backdrop-filter: blur(2px); }
+        #recent-transactions > * { min-width: 0; overflow-wrap: anywhere; }
+        #recent-transactions > div:hover { background-color: rgb(248 250 252 / .8); }
+        .dark #recent-transactions > div:hover { background-color: rgb(51 65 85 / .25); }
+        #recent-transactions > p { padding: 2.5rem 1.25rem; text-align: center; font-size: .875rem; color: #64748b; }
+        @media (prefers-reduced-motion: reduce) { * { transition-duration: 0.01ms !important; } }
+    </style>
+
+    <style>
+        #category-report > *, #transaction-summary > * { min-width: 0; overflow-wrap: anywhere; }
+    </style>
+
+    <!-- Page JavaScript -->
+    <script src="reports.js" defer></script>
+    <script src="avatar.js" defer></script>
+</head>
+
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300 antialiased overflow-x-hidden">
+
+    <!-- MOBILE MENU OVERLAY -->
+    <div id="mobile-overlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-[2px] z-40 hidden lg:hidden"></div>
+
+    <div class="flex min-h-screen">
+
+        <!-- ========================= -->
+        <!-- SIDEBAR -->
+        <!-- ========================= -->
+        <aside id="sidebar" class="w-64 bg-navy dark:bg-slate-950 text-white flex flex-col fixed left-0 top-0 bottom-16 lg:bottom-0 z-50 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out rounded-r-2xl lg:rounded-none border-r border-transparent dark:border-slate-800">
+
+            <!-- Logo -->
+            <div class="px-5 h-20 flex items-center border-b border-white/10">
+                <div class="flex w-full items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-green text-white shadow-sm"><i class="fa-solid fa-wallet"></i></div>
+                        <div>
+                            <h1 class="text-lg font-semibold leading-tight tracking-tight">CashBook</h1>
+                            <p class="text-xs text-slate-400 leading-tight mt-0.5">Personal Finance Planner</p>
+                        </div>
+                    </div>
+                    <button id="close-menu" class="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition" aria-label="Close menu"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+            </div>
+
+            <!-- Menu -->
+            <nav class="flex-1 px-3 py-4 overflow-y-auto space-y-1" aria-label="Main navigation">
+                <button id="dashboard-link" class="menu-link"><i class="fa-solid fa-house"></i><span>Dashboard</span></button>
+                <button id="transactions-link" class="menu-link"><i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transactions</span></button>
+                <button id="budget-link" class="menu-link"><i class="fa-solid fa-bullseye"></i><span>Budget &amp; Goals</span></button>
+                <button id="reports-link" class="menu-link active" aria-current="page"><i class="fa-solid fa-chart-pie"></i><span>Reports</span></button>
+                <button id="profile-link" class="menu-link"><i class="fa-solid fa-user"></i><span>Profile</span></button>
+                <button id="settings-link" class="menu-link"><i class="fa-solid fa-gear"></i><span>Settings</span></button>
+            </nav>
+
+            <!-- Bottom User Profile & Logout -->
+            <div class="p-4 border-t border-white/10 space-y-3">
+                <div class="flex items-center gap-3 px-1">
+                    <div id="profile-initials" class="w-10 h-10 rounded-full bg-green/15 text-green ring-1 ring-green/30 flex items-center justify-center text-sm font-semibold">C</div>
+                    <div class="min-w-0">
+                        <p id="user-name" class="font-medium text-white truncate text-sm">Cletus</p>
+                        <p class="text-xs text-slate-400">CashBook User</p>
+                    </div>
+                </div>
+                <button id="logout-link" class="w-full flex items-center gap-3 px-4 h-11 rounded-lg text-sm font-medium text-slate-300 transition duration-150 hover:bg-red-500/10 hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60"><i class="fa-solid fa-right-from-bracket w-5 text-center"></i><span>Logout</span></button>
+            </div>
+        </aside>
+
+
+        <!-- ========================= -->
+        <!-- MAIN CONTENT -->
+        <!-- ========================= -->
+        <main class="lg:ml-64 flex-1 min-w-0">
+
+            <!-- ========================= -->
+            <!-- HEADER -->
+            <!-- ========================= -->
+            <header class="sticky top-0 z-20 flex items-center justify-between h-16 sm:h-20 border-b border-slate-200 dark:border-slate-800 bg-white/85 dark:bg-slate-900/85 backdrop-blur px-4 sm:px-6 lg:px-8 transition-colors">
+                <div class="flex items-center gap-3 min-w-0">
+                    <button id="open-menu" type="button" class="lg:hidden w-10 h-10 shrink-0 flex items-center justify-center rounded-lg bg-navy dark:bg-slate-800 text-white hover:bg-slate-700 transition" aria-label="Open menu"><i class="fa-solid fa-bars"></i></button>
+                    <div class="min-w-0">
+                        <h2 class="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white truncate">Reports</h2>
+                        <p class="hidden sm:block text-sm text-slate-500 dark:text-slate-400 truncate">CashBook</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 shrink-0">
+                    <div id="top-profile-initials" class="w-10 h-10 rounded-full bg-green/15 text-green ring-1 ring-green/30 flex items-center justify-center text-sm font-semibold">C</div>
+                    <div class="hidden sm:block">
+                        <p id="top-user-name" class="text-sm font-medium text-slate-900 dark:text-slate-100 leading-tight">Cletus</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">CashBook User</p>
+                    </div>
+                </div>
+            </header>
+
+            <section class="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
+
+                <!-- PAGE HEADING -->
+                <div class="mb-6 sm:mb-8">
+                    <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Financial Reports</h1>
+                    <p class="text-slate-500 dark:text-slate-400 mt-1 text-sm sm:text-base">Review your income, expenses and financial activity.</p>
+                </div>
+
+                <!-- ========================= -->
+                <!-- SUMMARY CARDS -->
+                <!-- ========================= -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    <div class="card card-hover p-5 border-t-2 border-t-green">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-sm text-slate-500 dark:text-slate-400">Total Income</p>
+                                <h2 id="total-income" class="text-2xl font-semibold text-green mt-2 truncate">₦0.00</h2>
+                            </div>
+                            <div class="badge-icon bg-green/10 text-green"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                        </div>
+                    </div>
+                    <div class="card card-hover p-5 border-t-2 border-t-red-500">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-sm text-slate-500 dark:text-slate-400">Total Expenses</p>
+                                <h2 id="total-expenses" class="text-2xl font-semibold text-red-500 mt-2 truncate">₦0.00</h2>
+                            </div>
+                            <div class="badge-icon bg-red-500/10 text-red-500"><i class="fa-solid fa-arrow-trend-down"></i></div>
+                        </div>
+                    </div>
+                    <div class="card card-hover p-5 border-t-2 border-t-navy dark:border-t-slate-500">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-sm text-slate-500 dark:text-slate-400">Balance</p>
+                                <h2 id="total-balance" class="text-2xl font-semibold text-navy dark:text-slate-100 mt-2 truncate">₦0.00</h2>
+                            </div>
+                            <div class="badge-icon bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200"><i class="fa-solid fa-wallet"></i></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ========================= -->
+                <!-- REPORT PERIOD -->
+                <!-- ========================= -->
+                <div class="card p-4 sm:p-5 mb-6">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="badge-icon bg-green/10 text-green"><i class="fa-solid fa-filter"></i></div>
+                        <div>
+                            <h2 class="font-semibold text-slate-900 dark:text-slate-100">Report Period</h2>
+                            <p class="text-sm text-slate-500 dark:text-slate-400">Select the period you want to view.</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mb-4" role="group" aria-label="Quick periods">
+                        <button type="button" data-range="this-month" class="range-chip">This month</button>
+                        <button type="button" data-range="last-month" class="range-chip">Last month</button>
+                        <button type="button" data-range="last-3-months" class="range-chip">Last 3 months</button>
+                        <button type="button" data-range="this-year" class="range-chip">This year</button>
+                        <button type="button" data-range="all" class="range-chip">All time</button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="start-date" class="field-label">Start Date</label>
+                            <input type="date" id="start-date" class="field">
+                        </div>
+                        <div>
+                            <label for="end-date" class="field-label">End Date</label>
+                            <input type="date" id="end-date" class="field">
+                        </div>
+                    </div>
+
+                    <!-- Download this period -->
+                    <div class="mt-5 pt-4 border-t border-slate-200 dark:border-slate-700/70">
+                        <p class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Download this report</p>
+                        <p id="export-period" class="text-sm text-slate-500 dark:text-slate-400 mb-3">All time</p>
+                        <div class="flex flex-col sm:flex-row gap-3">
+                            <button type="button" id="export-pdf" class="btn-primary sm:flex-1">
+                                <i class="fa-solid fa-file-pdf"></i> Download PDF
+                            </button>
+                            <button type="button" id="export-xlsx" class="btn-dark sm:flex-1">
+                                <i class="fa-solid fa-file-excel"></i> Download Excel
+                            </button>
+                        </div>
+                        <p id="export-status" class="text-sm mt-3 font-semibold" role="status"></p>
+                    </div>
+                </div>
+
+                <!-- ========================= -->
+                <!-- REPORT DETAILS -->
+                <!-- ========================= -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                    <!-- Income & Expenses -->
+                    <div class="card overflow-hidden">
+                        <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700/70 flex items-center gap-3">
+                            <div class="badge-icon bg-green/10 text-green"><i class="fa-solid fa-chart-column"></i></div>
+                            <div>
+                                <h2 class="font-semibold text-slate-900 dark:text-slate-100">Income &amp; Expenses</h2>
+                                <p class="text-sm text-slate-500 dark:text-slate-400">Summary of your financial activity.</p>
+                            </div>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <div class="flex items-center justify-between gap-3">
+                                <span class="text-sm text-slate-600 dark:text-slate-300">Income</span>
+                                <span id="report-income" class="font-semibold text-green">₦0.00</span>
+                            </div>
+                            <div class="flex items-center justify-between gap-3">
+                                <span class="text-sm text-slate-600 dark:text-slate-300">Expenses</span>
+                                <span id="report-expenses" class="font-semibold text-red-500">₦0.00</span>
+                            </div>
+                            <div class="border-t border-slate-200 dark:border-slate-700 pt-4 flex items-center justify-between gap-3">
+                                <span class="font-semibold text-slate-900 dark:text-white">Balance</span>
+                                <span id="report-balance" class="font-bold text-navy dark:text-white">₦0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Spending by Category -->
+                    <div class="card overflow-hidden">
+                        <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700/70 flex items-center gap-3">
+                            <div class="badge-icon bg-green/10 text-green"><i class="fa-solid fa-chart-pie"></i></div>
+                            <div>
+                                <h2 class="font-semibold text-slate-900 dark:text-slate-100">Spending by Category</h2>
+                                <p class="text-sm text-slate-500 dark:text-slate-400">See where your money is going.</p>
+                            </div>
+                        </div>
+                        <!-- reports.js renders category rows here -->
+                        <div id="category-report" class="p-5 space-y-4">
+                            <p class="text-sm text-slate-500 dark:text-slate-400">No expense data available.</p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- ========================= -->
+                <!-- TRANSACTION SUMMARY -->
+                <!-- ========================= -->
+                <div class="card overflow-hidden mt-6">
+                        <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700/70 flex items-center gap-3">
+                            <div class="badge-icon bg-green/10 text-green"><i class="fa-solid fa-list"></i></div>
+                            <div>
+                                <h2 class="font-semibold text-slate-900 dark:text-slate-100">Transaction Summary</h2>
+                                <p class="text-sm text-slate-500 dark:text-slate-400">Summary of transactions in the selected period.</p>
+                            </div>
+                        </div>
+                    <!-- reports.js renders the summary here -->
+                    <div id="transaction-summary" class="p-5">
+                        <p class="text-sm text-slate-500 dark:text-slate-400">No transactions available.</p>
+                    </div>
+                </div>
+
+            </section>
+
+        </main>
+    </div>
+
+    <!-- ========================= -->
+    <!-- MOBILE MENU SCRIPT -->
+    <!-- ========================= -->
+    <script>
+        const sidebar = document.getElementById("sidebar");
+        const openMenu = document.getElementById("open-menu");
+        const closeMenu = document.getElementById("close-menu");
+        const mobileOverlay = document.getElementById("mobile-overlay");
+
+        openMenu.addEventListener("click", () => {
+            sidebar.classList.remove("-translate-x-full");
+            mobileOverlay.classList.remove("hidden");
+        });
+
+        function closeMobileMenu() {
+            sidebar.classList.add("-translate-x-full");
+            mobileOverlay.classList.add("hidden");
+        }
+
+        closeMenu.addEventListener("click", closeMobileMenu);
+        mobileOverlay.addEventListener("click", closeMobileMenu);
+
+        document.querySelectorAll(".menu-link").forEach(link => {
+            link.addEventListener("click", () => {
+                if (window.innerWidth < 1024) closeMobileMenu();
+            });
+        });
+    </script>
+
+</body>
+</html>

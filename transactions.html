@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <title>CashBook - Transactions</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <!-- Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="./output.css" rel="stylesheet">
+
+    <!-- Tailwind Colors -->
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
+                    colors: {
+                        navy: "#0f172a",
+                        green: "#22c55e"
+                    }
+                }
+            }
+        };
+    </script>
+
+    <!-- Theme (unchanged behaviour) -->
+    <script>
+        if (localStorage.getItem("cashbookTheme") === "dark") {
+            document.documentElement.classList.add("dark");
+        }
+    </script>
+
+    <!-- Reusable styles: edit colours and sizes here -->
+    <style type="text/tailwindcss">
+        @layer components {
+
+            /* Cards */
+            .card {
+                @apply bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/70 shadow-sm transition duration-200;
+            }
+            .card-hover:hover {
+                @apply -translate-y-0.5 shadow-md;
+            }
+
+
+            /* Calculator keys */
+            .calc-key {
+                @apply h-11 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-base font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 active:scale-95 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30;
+            }
+            .calc-key-fn {
+                @apply bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300;
+            }
+            .calc-key-op {
+                @apply bg-green/10 text-green border-green/20 hover:bg-green/20;
+            }
+            .calc-key-eq {
+                @apply bg-navy text-white border-navy hover:bg-slate-700 dark:bg-slate-600 dark:border-slate-600;
+            }
+
+            /* Form controls (search, selects, modal inputs) */
+            .field-label {
+                @apply block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5;
+            }
+            .field {
+                @apply w-full h-11 px-3.5 rounded-lg border border-slate-300 dark:border-slate-600
+                       bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-slate-100
+                       placeholder:text-slate-400 dark:placeholder:text-slate-500
+                       transition duration-150
+                       focus:outline-none focus:border-green focus:ring-4 focus:ring-green/15;
+                color-scheme: light;
+            }
+            .dark .field { color-scheme: dark; }
+
+            /* Buttons */
+            .btn {
+                @apply inline-flex items-center justify-center gap-2 h-11 px-4 rounded-lg text-sm font-semibold
+                       transition duration-150 active:scale-[0.98]
+                       focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30;
+            }
+            .btn-primary { @apply btn bg-green text-white hover:bg-[#16a34a]; }
+            .btn-dark { @apply btn bg-navy text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600; }
+            .btn-outline {
+                @apply btn border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200
+                       hover:bg-slate-100 dark:hover:bg-slate-700/60;
+            }
+
+            /* Sidebar navigation */
+            .menu-link {
+                @apply relative w-full flex items-center gap-3 px-4 h-11 rounded-lg text-sm font-medium
+                       text-slate-300 transition duration-150 hover:bg-white/5 hover:text-white
+                       focus:outline-none focus-visible:ring-2 focus-visible:ring-green/60;
+            }
+            .menu-link i { @apply w-5 text-center text-slate-400 transition-colors duration-150; }
+            .menu-link:hover i { @apply text-slate-200; }
+            .menu-link.active { @apply bg-green/10 text-white; }
+            .menu-link.active i { @apply text-green; }
+            .menu-link.active::before {
+                content: "";
+                @apply absolute left-0 top-2 bottom-2 w-1 rounded-full bg-green;
+            }
+
+            /* Summary card icon badge */
+            .badge-icon { @apply w-10 h-10 rounded-lg flex items-center justify-center text-base; }
+        }
+
+        /* Styling for rows/empty state that transactions.js writes into #transactions-list */
+        #transactions-list > * { min-width: 0; overflow-wrap: anywhere; }
+        #transactions-list > div { transition: background-color .15s; }
+        #transactions-list > div:hover { background-color: rgb(248 250 252 / .8); }
+        .dark #transactions-list > div:hover { background-color: rgb(51 65 85 / .25); }
+        #transactions-list > p {
+            padding: 3rem 1.25rem; text-align: center; font-size: .875rem; color: #64748b;
+        }
+        #transactions-list > p::before {
+            content: "\f543"; font-family: "Font Awesome 6 Free"; font-weight: 900;
+            display: block; margin: 0 auto .75rem; width: 3rem; height: 3rem; line-height: 3rem;
+            border-radius: .75rem; background: #f1f5f9; color: #94a3b8; font-size: 1.125rem;
+        }
+        .dark #transactions-list > p::before { background: #1e293b; color: #64748b; }
+
+        /* Dialog */
+        #transactionModal { margin: auto; max-height: 92vh; }
+        #transactionModal::backdrop { background: rgb(15 23 42 / .6); backdrop-filter: blur(2px); }
+
+        @media (prefers-reduced-motion: reduce) {
+            * { transition-duration: 0.01ms !important; }
+        }
+        body { font-family: "Inter", system-ui, sans-serif; }
+    </style>
+
+    <!-- Page JavaScript -->
+    <script src="alertparser.js" defer></script>
+    <script src="transactions.js" defer></script>
+    <script src="calculator.js" defer></script>
+    <script src="avatar.js" defer></script>
+</head>
+
+
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300 antialiased overflow-x-hidden">
+
+
+    <!-- ========================= -->
+    <!-- MOBILE MENU OVERLAY -->
+    <!-- ========================= -->
+    <div id="mobile-overlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-[2px] z-40 hidden lg:hidden"></div>
+
+
+    <div class="flex min-h-screen">
+
+
+        <!-- ========================= -->
+        <!-- SIDEBAR -->
+        <!-- ========================= -->
+        <aside
+            id="sidebar"
+            class="w-64 bg-navy dark:bg-slate-950 text-white flex flex-col fixed left-0 top-0 bottom-16 lg:bottom-0 z-50
+                   transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out
+                   rounded-r-2xl lg:rounded-none border-r border-transparent dark:border-slate-800"
+        >
+
+            <!-- Logo -->
+            <div class="px-5 h-20 flex items-center border-b border-white/10">
+                <div class="flex w-full items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-green text-white shadow-sm">
+                            <i class="fa-solid fa-wallet"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-lg font-semibold leading-tight tracking-tight">CashBook</h1>
+                            <p class="text-xs text-slate-400 leading-tight mt-0.5">Personal Finance Planner</p>
+                        </div>
+                    </div>
+
+                    <!-- Mobile Close Button -->
+                    <button id="close-menu" class="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition" aria-label="Close menu">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Menu -->
+            <nav class="flex-1 px-3 py-4 overflow-y-auto space-y-1" aria-label="Main navigation">
+
+                <button id="dashboard-link" class="menu-link">
+                    <i class="fa-solid fa-house"></i><span>Dashboard</span>
+                </button>
+
+                <button id="transactions-link" class="menu-link active" aria-current="page">
+                    <i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transactions</span>
+                </button>
+
+                <button id="budget-link" class="menu-link">
+                    <i class="fa-solid fa-bullseye"></i><span>Budget &amp; Goals</span>
+                </button>
+
+                <button id="reports-link" class="menu-link">
+                    <i class="fa-solid fa-chart-pie"></i><span>Reports</span>
+                </button>
+
+                <button id="profile-link" class="menu-link">
+                    <i class="fa-solid fa-user"></i><span>Profile</span>
+                </button>
+
+                <button id="settings-link" class="menu-link">
+                    <i class="fa-solid fa-gear"></i><span>Settings</span>
+                </button>
+
+            </nav>
+
+            <!-- Bottom User Profile & Logout -->
+            <div class="p-4 border-t border-white/10 space-y-3">
+
+                <div class="flex items-center gap-3 px-1">
+                    <div id="profile-initials" class="w-10 h-10 rounded-full bg-green/15 text-green ring-1 ring-green/30 flex items-center justify-center text-sm font-semibold">
+                        C
+                    </div>
+                    <div class="min-w-0">
+                        <p id="user-name-header" class="font-medium text-white truncate text-sm">Cletus</p>
+                        <p class="text-xs text-slate-400">CashBook User</p>
+                    </div>
+                </div>
+
+                <button id="logout-link" class="w-full flex items-center gap-3 px-4 h-11 rounded-lg text-sm font-medium text-slate-300 transition duration-150 hover:bg-red-500/10 hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60">
+                    <i class="fa-solid fa-right-from-bracket w-5 text-center"></i>
+                    <span>Logout</span>
+                </button>
+
+            </div>
+
+        </aside>
+
+
+        <!-- ========================= -->
+        <!-- MAIN CONTENT -->
+        <!-- ========================= -->
+        <main class="lg:ml-64 flex-1 min-w-0">
+
+
+            <!-- ========================= -->
+            <!-- HEADER -->
+            <!-- ========================= -->
+            <header class="sticky top-0 z-20 flex items-center justify-between h-16 sm:h-20 border-b border-slate-200 dark:border-slate-800 bg-white/85 dark:bg-slate-900/85 backdrop-blur px-4 sm:px-6 lg:px-8 transition-colors">
+
+                <div class="flex items-center gap-3 min-w-0">
+
+                    <!-- Mobile Menu Button -->
+                    <button id="open-menu" class="lg:hidden w-10 h-10 shrink-0 flex items-center justify-center rounded-lg bg-navy dark:bg-slate-800 text-white hover:bg-slate-700 transition" aria-label="Open menu">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+
+                    <div class="min-w-0">
+                        <h2 class="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white truncate">Transactions</h2>
+                        <p class="hidden sm:block text-sm text-slate-500 dark:text-slate-400 truncate">View and manage all your financial transactions.</p>
+                    </div>
+
+                </div>
+
+                <!-- Top User -->
+                <div class="flex items-center gap-3 shrink-0">
+                    <div id="profileHeaderInitials" class="w-10 h-10 rounded-full bg-green/15 text-green ring-1 ring-green/30 flex items-center justify-center text-sm font-semibold">
+                        C
+                    </div>
+                    <div class="hidden sm:block">
+                        <p id="header-user-name" class="text-sm font-medium text-slate-900 dark:text-slate-100 leading-tight">Cletus</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">CashBook User</p>
+                    </div>
+                </div>
+
+            </header>
+
+
+            <section class="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
+
+
+                <!-- PAGE TITLE -->
+                <div class="mb-6 sm:mb-8">
+                    <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Transactions</h1>
+                    <p class="text-slate-500 dark:text-slate-400 mt-1 text-sm sm:text-base">Track and manage your income and expenses.</p>
+                </div>
+
+
+                <!-- ========================= -->
+                <!-- SUMMARY CARDS -->
+                <!-- ========================= -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+
+                    <!-- Total Income -->
+                    <div class="card card-hover p-5 border-t-2 border-t-green">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-sm text-slate-500 dark:text-slate-400">Total Income</p>
+                                <h2 id="total-income" class="text-2xl font-semibold text-green mt-2 truncate">₦0.00</h2>
+                            </div>
+                            <div class="badge-icon bg-green/10 text-green"><i class="fa-solid fa-arrow-down"></i></div>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">Income for selected period</p>
+                    </div>
+
+                    <!-- Total Expenses -->
+                    <div class="card card-hover p-5 border-t-2 border-t-red-500">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-sm text-slate-500 dark:text-slate-400">Total Expenses</p>
+                                <h2 id="total-expenses" class="text-2xl font-semibold text-red-500 mt-2 truncate">₦0.00</h2>
+                            </div>
+                            <div class="badge-icon bg-red-500/10 text-red-500"><i class="fa-solid fa-arrow-up"></i></div>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">Expenses for selected period</p>
+                    </div>
+
+                    <!-- Net Cash Flow -->
+                    <div class="card card-hover p-5 border-t-2 border-t-navy dark:border-t-slate-500">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-sm text-slate-500 dark:text-slate-400">Net Cash Flow</p>
+                                <h2 id="net-balance" class="text-2xl font-semibold text-navy dark:text-slate-100 mt-2 truncate">₦0.00</h2>
+                            </div>
+                            <div class="badge-icon bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200"><i class="fa-solid fa-scale-balanced"></i></div>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">Income minus expenses</p>
+                    </div>
+
+                </div>
+
+
+                <!-- ========================= -->
+                <!-- FILTERS -->
+                <!-- ========================= -->
+                <div class="card p-4 sm:p-5 mb-6">
+
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-slate-100">
+                            <i class="fa-solid fa-filter text-slate-400 text-sm"></i>
+                            Filter Transactions
+                        </h2>
+
+                        <button id="clear-filters" class="inline-flex items-center gap-2 h-9 px-3 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30">
+                            <i class="fa-solid fa-rotate-left text-xs"></i>
+                            Clear Filters
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+                        <!-- Search -->
+                        <div class="sm:col-span-2 lg:col-span-4">
+                            <label for="search-input" class="field-label">Search</label>
+                            <div class="relative">
+                                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none"></i>
+                                <input type="search" id="search-input" placeholder="Search keyword, merchant or note..." class="field pl-10">
+                            </div>
+                        </div>
+
+                        <!-- Period -->
+                        <div>
+                            <label for="period-filter" class="field-label">Date Period</label>
+                            <select id="period-filter" class="field">
+                                <option value="all">All Time</option>
+                                <option value="today">Today</option>
+                                <option value="week">This Week</option>
+                                <option value="month">This Month</option>
+                                <option value="last30">Last 30 Days</option>
+                                <option value="custom">Custom Dates</option>
+                            </select>
+                        </div>
+
+                        <!-- Type -->
+                        <div>
+                            <label for="type-filter" class="field-label">Transaction Type</label>
+                            <select id="type-filter" class="field">
+                                <option value="all">All</option>
+                                <option value="income">Income</option>
+                                <option value="expense">Expense</option>
+                            </select>
+                        </div>
+
+                        <!-- Category -->
+                        <div>
+                            <label for="category-filter" class="field-label">Category</label>
+                            <select id="category-filter" class="field">
+                                <option value="all">All Categories</option>
+                                <option value="Food">Food</option>
+                                <option value="Transport">Transport</option>
+                                <option value="Data">Data</option>
+                                <option value="Airtime">Airtime</option>
+                                <option value="Salary">Salary</option>
+                                <option value="Business">Business</option>
+                                <option value="Entertainment">Entertainment</option>
+                                <option value="Utilities">Utilities</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Start Date -->
+                        <div id="custom-date-fields" class="hidden">
+                            <label for="start-date" class="field-label">Start Date</label>
+                            <input type="date" id="start-date" class="field">
+                        </div>
+
+                        <!-- End Date -->
+                        <div id="end-date-field" class="hidden">
+                            <label for="end-date" class="field-label">End Date</label>
+                            <input type="date" id="end-date" class="field">
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ========================= -->
+                <!-- TRANSACTION HISTORY -->
+                <!-- ========================= -->
+                <div class="card overflow-hidden">
+
+                    <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+
+                        <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">Transaction History</h2>
+
+                        <div class="grid grid-cols-2 sm:flex gap-2">
+                            <button id="add-income" class="btn-primary">
+                                <i class="fa-solid fa-arrow-down text-xs"></i> Income
+                            </button>
+                            <button id="add-expense" class="btn-dark">
+                                <i class="fa-solid fa-arrow-up text-xs"></i> Expense
+                            </button>
+                            <button id="paste-alert" type="button" class="btn-outline col-span-2 sm:col-auto" title="Paste a bank debit or credit alert and CashBook fills in the transaction">
+                                <i class="fa-solid fa-paste text-xs"></i> Paste bank alert
+                            </button>
+                        </div>
+
+                    </div>
+
+                    <!-- transactions.js renders rows here -->
+                    <div id="transactions-list" class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                        <p>No transactions yet. Use the Income or Expense button to add your first one.</p>
+                    </div>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+
+    <!-- ========================= -->
+    <!-- TRANSACTION MODAL -->
+    <!-- ========================= -->
+    <dialog
+        id="transactionModal"
+        class="rounded-xl p-0 w-11/12 max-w-md shadow-xl backdrop:bg-black/50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 overflow-y-auto"
+    >
+
+        <!-- Modal header -->
+        <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-9 h-9 shrink-0 rounded-lg bg-green/10 text-green flex items-center justify-center">
+                    <i class="fa-solid fa-plus"></i>
+                </div>
+                <h2 id="modalTitle" class="text-lg font-semibold truncate">Add Transaction</h2>
+            </div>
+
+            <button id="close-modal" type="button" class="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30" aria-label="Close">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+        </div>
+
+        <form id="transactionForm" class="p-5 space-y-4">
+
+            <input type="hidden" id="transactionType">
+
+            <!-- Amount -->
+            <div>
+                <label for="amount" class="field-label">Amount (₦)</label>
+                <div class="relative">
+                    <span class="absolute inset-y-0 left-3.5 flex items-center text-lg font-semibold text-slate-400 pointer-events-none">₦</span>
+                    <input type="number" id="amount" min="0.01" step="0.01" placeholder="Enter amount" required class="field h-14 pl-9 pr-14 text-xl font-semibold">
+                    <button type="button" id="calc-toggle" class="absolute right-2 inset-y-0 my-auto w-10 h-10 flex items-center justify-center rounded-lg text-slate-500 hover:text-green hover:bg-green/10 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30" aria-label="Open calculator" aria-expanded="false" aria-controls="calc-panel" title="Calculator">
+                        <i class="fa-solid fa-calculator text-lg"></i>
+                    </button>
+                </div>
+
+                <!-- Calculator -->
+                <div id="calc-panel" class="hidden mt-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3" role="group" aria-label="Calculator">
+                    <input type="text" id="calc-display" inputmode="none" autocomplete="off" spellcheck="false" placeholder="e.g. 2500 + 1200 × 3" aria-label="Calculation" class="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-right text-xl font-semibold outline-none focus:border-green">
+                    <p id="calc-result" class="text-right text-sm text-slate-500 dark:text-slate-400 h-6 mt-1" aria-live="polite"></p>
+                    <div class="grid grid-cols-4 gap-2 mt-1">
+                        <button type="button" data-calc="clear" class="calc-key calc-key-fn" aria-label="Clear">C</button>
+                        <button type="button" data-calc="(" class="calc-key calc-key-fn" aria-label="Open bracket">(</button>
+                        <button type="button" data-calc=")" class="calc-key calc-key-fn" aria-label="Close bracket">)</button>
+                        <button type="button" data-calc="back" class="calc-key calc-key-fn" aria-label="Backspace">⌫</button>
+                        <button type="button" data-calc="7" class="calc-key " aria-label="7">7</button>
+                        <button type="button" data-calc="8" class="calc-key " aria-label="8">8</button>
+                        <button type="button" data-calc="9" class="calc-key " aria-label="9">9</button>
+                        <button type="button" data-calc="/" class="calc-key calc-key-op" aria-label="Divide">÷</button>
+                        <button type="button" data-calc="4" class="calc-key " aria-label="4">4</button>
+                        <button type="button" data-calc="5" class="calc-key " aria-label="5">5</button>
+                        <button type="button" data-calc="6" class="calc-key " aria-label="6">6</button>
+                        <button type="button" data-calc="*" class="calc-key calc-key-op" aria-label="Multiply">×</button>
+                        <button type="button" data-calc="1" class="calc-key " aria-label="1">1</button>
+                        <button type="button" data-calc="2" class="calc-key " aria-label="2">2</button>
+                        <button type="button" data-calc="3" class="calc-key " aria-label="3">3</button>
+                        <button type="button" data-calc="-" class="calc-key calc-key-op" aria-label="Minus">−</button>
+                        <button type="button" data-calc="0" class="calc-key " aria-label="0">0</button>
+                        <button type="button" data-calc="." class="calc-key " aria-label="Decimal point">.</button>
+                        <button type="button" data-calc="%" class="calc-key calc-key-fn" aria-label="Percent">%</button>
+                        <button type="button" data-calc="+" class="calc-key calc-key-op" aria-label="Plus">+</button>
+                        <button type="button" data-calc="equals" class="calc-key calc-key-eq col-span-4" aria-label="Equals">=</button>
+                    </div>
+                    <button type="button" id="calc-use" class="btn-primary w-full mt-3 h-11 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Use this amount</button>
+                </div>
+            </div>
+
+            <!-- Description -->
+            <div>
+                <label for="description" class="field-label">Description</label>
+                <input type="text" id="description" placeholder="e.g. Salary, Food, Transport" required class="field">
+            </div>
+
+            <!-- Date and Time -->
+            <div class="grid grid-cols-1 min-[420px]:grid-cols-2 gap-4">
+                <div>
+                    <label for="transactionDate" class="field-label">Date</label>
+                    <input type="date" id="transactionDate" required class="field">
+                </div>
+                <div>
+                    <label for="transactionTime" class="field-label">Time</label>
+                    <input type="time" id="transactionTime" class="field">
+                </div>
+            </div>
+
+            <!-- Category -->
+            <div>
+                <label for="category" class="field-label">Category</label>
+                <select id="category" required class="field">
+                    <option value="">Select category</option>
+                    <option value="Food">Food</option>
+                    <option value="Transport">Transport</option>
+                    <option value="Data">Data</option>
+                    <option value="Airtime">Airtime</option>
+                    <option value="Salary">Salary</option>
+                    <option value="Business">Business</option>
+                    <option value="Entertainment">Entertainment</option>
+                    <option value="Utilities">Utilities</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <!-- Buttons -->
+            <div class="flex gap-3 pt-2">
+                <button id="cancel-modal" type="button" class="btn-outline flex-1">Cancel</button>
+                <button type="submit" class="btn-primary flex-1">
+                    <i class="fa-solid fa-check text-xs"></i> Save Transaction
+                </button>
+            </div>
+
+        </form>
+
+    </dialog>
+
+
+    <!-- ========================= -->
+    <!-- PASTE BANK ALERT (alertparser.js reads the text, nothing is sent anywhere) -->
+    <!-- ========================= -->
+    <dialog id="alert-modal" class="w-[92%] max-w-md rounded-xl p-0 shadow-xl backdrop:bg-black/50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 overflow-y-auto">
+        <div class="flex items-center justify-between gap-3 p-5 border-b border-slate-200 dark:border-slate-700">
+            <div class="min-w-0">
+                <h2 class="text-lg font-semibold truncate">Paste bank alert</h2>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Copy the SMS or email from your bank and paste it here.</p>
+            </div>
+            <button id="close-alert-modal" type="button" class="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30" aria-label="Close"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+
+        <div class="p-5 space-y-4">
+            <div>
+                <label for="alert-text" class="field-label">Alert text</label>
+                <textarea id="alert-text" rows="4" class="field" placeholder="e.g. Acct:***1234 Amt:NGN5,000.00 DR Desc:TRANSFER TO JOHN Avail Bal:NGN12,500.00 Date:07-OCT-26"></textarea>
+                <button id="alert-clipboard" type="button" class="mt-2 text-sm font-medium text-green hover:underline">
+                    <i class="fa-solid fa-clipboard text-xs"></i> Paste from clipboard
+                </button>
+            </div>
+
+            <div id="alert-summary" class="hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-4 text-sm" aria-live="polite"></div>
+
+            <fieldset id="alert-type-group" class="hidden">
+                <legend class="field-label">Did money go out or come in?</legend>
+                <div class="grid grid-cols-2 gap-2 mt-1">
+                    <label class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 px-3 h-11 cursor-pointer">
+                        <input type="radio" name="alert-type" value="expense"> <span>Money out</span>
+                    </label>
+                    <label class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 px-3 h-11 cursor-pointer">
+                        <input type="radio" name="alert-type" value="income"> <span>Money in</span>
+                    </label>
+                </div>
+            </fieldset>
+
+            <p class="text-xs text-slate-500 dark:text-slate-400">You can check and change everything on the next screen before saving.</p>
+
+            <div class="flex gap-3">
+                <button id="cancel-alert" type="button" class="btn-outline flex-1">Cancel</button>
+                <button id="alert-continue" type="button" class="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Continue</button>
+            </div>
+        </div>
+    </dialog>
+
+
+    <!-- ========================= -->
+    <!-- MOBILE MENU SCRIPT -->
+    <!-- ========================= -->
+    <script>
+
+        const sidebar = document.getElementById("sidebar");
+        const openMenu = document.getElementById("open-menu");
+        const closeMenu = document.getElementById("close-menu");
+        const mobileOverlay = document.getElementById("mobile-overlay");
+
+        // Open mobile menu
+        openMenu.addEventListener("click", () => {
+            sidebar.classList.remove("-translate-x-full");
+            mobileOverlay.classList.remove("hidden");
+        });
+
+        // Close mobile menu
+        function closeMobileMenu() {
+            sidebar.classList.add("-translate-x-full");
+            mobileOverlay.classList.add("hidden");
+        }
+
+        closeMenu.addEventListener("click", closeMobileMenu);
+        mobileOverlay.addEventListener("click", closeMobileMenu);
+
+        // Close menu when a menu item is clicked
+        document.querySelectorAll(".menu-link").forEach(link => {
+            link.addEventListener("click", () => {
+                if (window.innerWidth < 1024) {
+                    closeMobileMenu();
+                }
+            });
+        });
+
+    </script>
+
+</body>
+</html>

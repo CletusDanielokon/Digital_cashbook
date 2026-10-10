@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>CashBook - Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <!-- Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="./output.css" rel="stylesheet">
+
+    <!-- Tailwind Colors -->
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: { extend: {
+                fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
+                colors: { navy: "#0f172a", green: "#22c55e" }
+            } }
+        };
+    </script>
+
+    <!-- Theme (unchanged behaviour) -->
+    <script>
+        if (localStorage.getItem("cashbookTheme") === "dark") {
+            document.documentElement.classList.add("dark");
+        }
+    </script>
+
+    <!-- Reusable styles: edit colours and sizes here -->
+    <style type="text/tailwindcss">
+        @layer components {
+            .card { @apply bg-white dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/70 shadow-sm transition duration-200; }
+            .card-hover:hover { @apply -translate-y-0.5 shadow-md; }
+            .field-label { @apply block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5; }
+            .field {
+                @apply w-full h-11 px-3.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-slate-100
+                       placeholder:text-slate-400 dark:placeholder:text-slate-500 transition duration-150 focus:outline-none focus:border-green focus:ring-4 focus:ring-green/15;
+                color-scheme: light;
+            }
+            .dark .field { color-scheme: dark; }
+            .btn { @apply inline-flex items-center justify-center gap-2 h-11 px-4 rounded-lg text-sm font-semibold transition duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30; }
+            .btn-primary { @apply btn bg-green text-white hover:bg-[#16a34a]; }
+            .btn-dark { @apply btn bg-navy text-white hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600; }
+            .btn-outline { @apply btn border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60; }
+            .menu-link { @apply relative w-full flex items-center gap-3 px-4 h-11 rounded-lg text-sm font-medium text-slate-300 transition duration-150 hover:bg-white/5 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-green/60; }
+            .menu-link i { @apply w-5 text-center text-slate-400 transition-colors duration-150; }
+            .menu-link:hover i { @apply text-slate-200; }
+            .menu-link.active { @apply bg-green/10 text-white; }
+            .menu-link.active i { @apply text-green; }
+            .menu-link.active::before { content: ""; @apply absolute left-0 top-2 bottom-2 w-1 rounded-full bg-green; }
+            .badge-icon { @apply w-10 h-10 rounded-lg flex items-center justify-center text-base; }
+        }
+        body { font-family: "Inter", system-ui, sans-serif; }
+        #transactionModal { margin: auto; max-height: 92vh; }
+        #transactionModal::backdrop { background: rgb(15 23 42 / .6); backdrop-filter: blur(2px); }
+        #recent-transactions > * { min-width: 0; overflow-wrap: anywhere; }
+        #recent-transactions > div:hover { background-color: rgb(248 250 252 / .8); }
+        .dark #recent-transactions > div:hover { background-color: rgb(51 65 85 / .25); }
+        #recent-transactions > p { padding: 2.5rem 1.25rem; text-align: center; font-size: .875rem; color: #64748b; }
+        @media (prefers-reduced-motion: reduce) { * { transition-duration: 0.01ms !important; } }
+    </style>
+
+    <!-- Page JavaScript -->
+    <script src="dashboard.js" defer></script>
+    <script src="insights.js" defer></script>
+    <script src="avatar.js" defer></script>
+</head>
+
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300 antialiased overflow-x-hidden">
+
+    <!-- MOBILE MENU OVERLAY -->
+    <div id="mobile-overlay" class="fixed inset-0 bg-slate-900/50 backdrop-blur-[2px] z-40 hidden lg:hidden"></div>
+
+    <div class="flex min-h-screen">
+
+        <!-- ========================= -->
+        <!-- SIDEBAR -->
+        <!-- ========================= -->
+        <aside id="sidebar" class="w-64 bg-navy dark:bg-slate-950 text-white flex flex-col fixed left-0 top-0 bottom-16 lg:bottom-0 z-50 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out rounded-r-2xl lg:rounded-none border-r border-transparent dark:border-slate-800">
+
+            <!-- Logo -->
+            <div class="px-5 h-20 flex items-center border-b border-white/10">
+                <div class="flex w-full items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-green text-white shadow-sm"><i class="fa-solid fa-wallet"></i></div>
+                        <div>
+                            <h1 class="text-lg font-semibold leading-tight tracking-tight">CashBook</h1>
+                            <p class="text-xs text-slate-400 leading-tight mt-0.5">Personal Finance Planner</p>
+                        </div>
+                    </div>
+                    <button id="close-menu" class="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition" aria-label="Close menu"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+            </div>
+
+            <!-- Menu -->
+            <nav class="flex-1 px-3 py-4 overflow-y-auto space-y-1" aria-label="Main navigation">
+                <button id="dashboard-link" class="menu-link active" aria-current="page"><i class="fa-solid fa-house"></i><span>Dashboard</span></button>
+                <button id="transactions-link" class="menu-link"><i class="fa-solid fa-arrow-right-arrow-left"></i><span>Transactions</span></button>
+                <button id="budget-link" class="menu-link"><i class="fa-solid fa-bullseye"></i><span>Budget &amp; Goals</span></button>
+                <button id="reports-link" class="menu-link"><i class="fa-solid fa-chart-pie"></i><span>Reports</span></button>
+                <button id="profile-link" class="menu-link"><i class="fa-solid fa-user"></i><span>Profile</span></button>
+                <button id="settings-link" class="menu-link"><i class="fa-solid fa-gear"></i><span>Settings</span></button>
+            </nav>
+
+            <!-- Bottom User Profile & Logout -->
+            <div class="p-4 border-t border-white/10 space-y-3">
+                <div class="flex items-center gap-3 px-1">
+                    <div id="profile-initials" class="w-10 h-10 rounded-full bg-green/15 text-green ring-1 ring-green/30 flex items-center justify-center text-sm font-semibold">U</div>
+                    <div class="min-w-0">
+                        <p id="user-name-header" class="font-medium text-white truncate text-sm">User</p>
+                        <p class="text-xs text-slate-400">CashBook User</p>
+                    </div>
+                </div>
+                <button id="logout-link" class="w-full flex items-center gap-3 px-4 h-11 rounded-lg text-sm font-medium text-slate-300 transition duration-150 hover:bg-red-500/10 hover:text-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400/60"><i class="fa-solid fa-right-from-bracket w-5 text-center"></i><span>Logout</span></button>
+            </div>
+        </aside>
+
+
+        <!-- ========================= -->
+        <!-- MAIN CONTENT -->
+        <!-- ========================= -->
+        <main class="lg:ml-64 flex-1 min-w-0">
+
+            <!-- ========================= -->
+            <!-- HEADER -->
+            <!-- ========================= -->
+            <header class="sticky top-0 z-20 flex items-center justify-between h-16 sm:h-20 border-b border-slate-200 dark:border-slate-800 bg-white/85 dark:bg-slate-900/85 backdrop-blur px-4 sm:px-6 lg:px-8 transition-colors">
+                <div class="flex items-center gap-3 min-w-0">
+                    <button id="open-menu" class="lg:hidden w-10 h-10 shrink-0 flex items-center justify-center rounded-lg bg-navy dark:bg-slate-800 text-white hover:bg-slate-700 transition" aria-label="Open menu"><i class="fa-solid fa-bars"></i></button>
+                    <div class="min-w-0">
+                        <h2 class="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white truncate">Dashboard</h2>
+                        <p class="hidden sm:block text-sm text-slate-500 dark:text-slate-400 truncate">Keep your finances organized and up to date.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 shrink-0">
+                    <div id="profileHeaderInitials" class="w-10 h-10 rounded-full bg-green/15 text-green ring-1 ring-green/30 flex items-center justify-center text-sm font-semibold">C</div>
+                    <div class="hidden sm:block">
+                        <p id="header-user-name" class="text-sm font-medium text-slate-900 dark:text-slate-100 leading-tight">Cletus</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">CashBook User</p>
+                    </div>
+                </div>
+            </header>
+
+            <section class="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
+
+                <!-- WELCOME MESSAGE -->
+                <div class="mb-6 sm:mb-8">
+                    <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-navy dark:text-white">
+                        Welcome, <span id="welcome-name">Cletus</span>!
+                    </h1>
+                    <p class="text-slate-500 dark:text-slate-400 mt-1 text-sm sm:text-base">Here's an overview of your finances.</p>
+                </div>
+
+                <!-- ========================= -->
+                <!-- SUMMARY CARDS -->
+                <!-- ========================= -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                    <div class="card card-hover p-5 border-t-2 border-t-navy dark:border-t-slate-500">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-sm text-slate-500 dark:text-slate-400">Current Balance</p>
+                                <h2 id="balance" class="text-2xl font-semibold text-navy dark:text-slate-100 mt-2 truncate">₦0.00</h2>
+                            </div>
+                            <div class="badge-icon bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200"><i class="fa-solid fa-wallet"></i></div>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">Available balance</p>
+                    </div>
+                    <div class="card card-hover p-5 border-t-2 border-t-green">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-sm text-slate-500 dark:text-slate-400">Total Income</p>
+                                <h2 id="income" class="text-2xl font-semibold text-green mt-2 truncate">₦0.00</h2>
+                            </div>
+                            <div class="badge-icon bg-green/10 text-green"><i class="fa-solid fa-arrow-trend-up"></i></div>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">Money received</p>
+                    </div>
+                    <div class="card card-hover p-5 border-t-2 border-t-red-500">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-sm text-slate-500 dark:text-slate-400">Total Expenses</p>
+                                <h2 id="expenses" class="text-2xl font-semibold text-red-500 mt-2 truncate">₦0.00</h2>
+                            </div>
+                            <div class="badge-icon bg-red-500/10 text-red-500"><i class="fa-solid fa-arrow-trend-down"></i></div>
+                        </div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">Money spent</p>
+                    </div>
+                </div>
+
+                <!-- ========================= -->
+                <!-- QUICK ACTIONS -->
+                <!-- ========================= -->
+                <div class="mb-8">
+                    <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100 mb-3">Quick Actions</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                        <button onclick="openModal('income')" id="add-income" class="group card card-hover p-4 flex items-center gap-4 text-left hover:border-green/60 focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30">
+                            <span class="badge-icon bg-green text-white shrink-0"><i class="fa-solid fa-arrow-down"></i></span>
+                            <span>
+                                <span class="block font-semibold text-slate-900 dark:text-white">Add Income</span>
+                                <span class="block text-sm text-slate-500 dark:text-slate-400">Record money received</span>
+                            </span>
+                        </button>
+
+                        <button onclick="openModal('expense')" id="add-expense" class="group card card-hover p-4 flex items-center gap-4 text-left hover:border-slate-400 focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30">
+                            <span class="badge-icon bg-navy dark:bg-slate-600 text-white shrink-0"><i class="fa-solid fa-arrow-up"></i></span>
+                            <span>
+                                <span class="block font-semibold text-slate-900 dark:text-white">Add Expense</span>
+                                <span class="block text-sm text-slate-500 dark:text-slate-400">Record money spent</span>
+                            </span>
+                        </button>
+
+                    </div>
+                </div>
+
+                <!-- ========================= -->
+                <!-- SPENDING ALERTS (insights.js fills this in) -->
+                <!-- ========================= -->
+                <div id="insights-panel" class="mb-6"></div>
+
+                <!-- ========================= -->
+                <!-- LOWER SECTION -->
+                <!-- ========================= -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                    <!-- RECENT TRANSACTIONS -->
+                    <div class="lg:col-span-2 card overflow-hidden">
+                        <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700/70 flex items-center justify-between">
+                            <h2 class="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-100">
+                                <i class="fa-solid fa-arrow-right-arrow-left text-slate-400 text-sm"></i> Recent Transactions
+                            </h2>
+                            <button id="see-all" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium text-green hover:bg-green/10 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30">See all</button>
+                        </div>
+
+                        <!-- dashboard.js renders rows here -->
+                        <div id="recent-transactions" class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                            <p>No transactions yet.</p>
+                        </div>
+                    </div>
+
+                    <!-- BUDGET OVERVIEW -->
+                    <div class="card p-5 flex flex-col">
+                        <div class="flex items-center justify-between mb-5">
+                            <h2 class="font-semibold text-slate-900 dark:text-slate-100">Budget Overview</h2>
+                            <div class="badge-icon bg-green/10 text-green w-9 h-9"><i class="fa-solid fa-bullseye"></i></div>
+                        </div>
+
+                        <!-- dashboard.js renders budget information here -->
+                        <div id="budget-overview-list" class="space-y-4"></div>
+
+                        <button id="view-budget" class="btn-outline w-full mt-6">View Budget</button>
+                    </div>
+
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- ========================= -->
+    <!-- TRANSACTION MODAL -->
+    <!-- ========================= -->
+    <dialog id="transactionModal" class="rounded-xl p-0 w-11/12 max-w-md shadow-xl backdrop:bg-black/50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 overflow-y-auto">
+
+        <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-9 h-9 shrink-0 rounded-lg bg-green/10 text-green flex items-center justify-center"><i class="fa-solid fa-plus"></i></div>
+                <h2 id="modalTitle" class="text-lg font-semibold truncate">Add Transaction</h2>
+            </div>
+            <button type="button" onclick="closeModal()" class="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30" aria-label="Close"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+
+        <form id="transactionForm" method="dialog" class="p-5 space-y-4">
+
+            <input type="hidden" id="transactionType">
+
+            <!-- Amount -->
+            <div>
+                <label for="amount" class="field-label">Amount (₦)</label>
+                <div class="relative">
+                    <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-lg font-semibold text-slate-400 pointer-events-none">₦</span>
+                    <input type="number" id="amount" placeholder="Enter amount" min="1" required class="field h-14 pl-9 text-xl font-semibold">
+                </div>
+            </div>
+
+            <!-- Description -->
+            <div>
+                <label for="description" class="field-label">Description</label>
+                <input type="text" id="description" placeholder="e.g. Salary, Food, Transport" required class="field">
+            </div>
+
+            <!-- Date and Time -->
+            <div class="grid grid-cols-1 min-[420px]:grid-cols-2 gap-4">
+                <div>
+                    <label for="transactionDate" class="field-label">Date</label>
+                    <input type="date" id="transactionDate" required class="field">
+                </div>
+                <div>
+                    <label for="transactionTime" class="field-label">Time</label>
+                    <input type="time" id="transactionTime" required class="field">
+                </div>
+            </div>
+
+            <!-- Category -->
+            <div>
+                <label for="category" class="field-label">Category</label>
+                <select id="category" required class="field">
+                    <option value="">Select category</option>
+                    <option value="Salary">Salary</option>
+                    <option value="Business">Business</option>
+                    <option value="Food">Food</option>
+                    <option value="Transport">Transport</option>
+                    <option value="Airtime">Airtime</option>
+                    <option value="Data">Data</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeModal()" class="btn-outline flex-1">Cancel</button>
+                <button type="submit" class="btn-primary flex-1"><i class="fa-solid fa-check text-xs"></i> Save Transaction</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- ========================= -->
+    <!-- MOBILE MENU SCRIPT -->
+    <!-- ========================= -->
+    <script>
+        const sidebar = document.getElementById("sidebar");
+        const openMenu = document.getElementById("open-menu");
+        const closeMenu = document.getElementById("close-menu");
+        const mobileOverlay = document.getElementById("mobile-overlay");
+
+        openMenu.addEventListener("click", () => {
+            sidebar.classList.remove("-translate-x-full");
+            mobileOverlay.classList.remove("hidden");
+        });
+
+        function closeMobileMenu() {
+            sidebar.classList.add("-translate-x-full");
+            mobileOverlay.classList.add("hidden");
+        }
+
+        closeMenu.addEventListener("click", closeMobileMenu);
+        mobileOverlay.addEventListener("click", closeMobileMenu);
+
+        document.querySelectorAll(".menu-link").forEach(link => {
+            link.addEventListener("click", () => {
+                if (window.innerWidth < 1024) closeMobileMenu();
+            });
+        });
+    </script>
+
+</body>
+</html>
