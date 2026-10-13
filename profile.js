@@ -19,7 +19,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const mobile = user.mobile || user.phone || user.phoneNumber || "Not provided";
     const bookName = user.book || user.bookName || "My Personal CashBook";
     const currency = user.currency || "NGN (₦)";
-    const joinedDate = user.createdAt || "January 2026";
+    // "October 2026" style date from the real sign-up date
+    function formatJoined(value) {
+        if (!value) return "Not available";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "Not available";
+        return date.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    }
+    const joinedDate = formatJoined(user.createdAt);
 
     // =========================================
     // 3. GET USER INITIALS
@@ -66,6 +73,25 @@ document.addEventListener("DOMContentLoaded", function () {
     if (infoBookName) infoBookName.textContent = bookName;
     if (infoCurrency) infoCurrency.textContent = currency;
     if (infoJoinedDate) infoJoinedDate.textContent = joinedDate;
+
+    // Accounts that logged in before this feature have no date saved in the browser yet:
+    // ask the server once and keep the answer.
+    if (!user.createdAt) {
+        const token = localStorage.getItem("cashbookToken");
+        if (token) {
+            fetch("http://localhost:5000/api/account/me", {
+                headers: { "Authorization": "Bearer " + token }
+            })
+                .then(function (response) { return response.ok ? response.json() : null; })
+                .then(function (data) {
+                    if (!data || !data.user || !data.user.createdAt) return;
+                    const saved = Object.assign({}, user, { createdAt: data.user.createdAt });
+                    localStorage.setItem("cashbookUser", JSON.stringify(saved));
+                    if (infoJoinedDate) infoJoinedDate.textContent = formatJoined(data.user.createdAt);
+                })
+                .catch(function () { /* offline or server asleep: keep what is shown */ });
+        }
+    }
 
     // =========================================
     // 6. NAVIGATION

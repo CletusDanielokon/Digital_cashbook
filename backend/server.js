@@ -113,7 +113,13 @@ module.exports = app;
 
 // Connect to MongoDB, then start listening
 if (require.main === module) {
-    mongoose.connect(process.env.MONGODB_URI)
+    // family: 4 -> use IPv4 only. On some networks the default (IPv6 first) makes
+    // Atlas drop the connection after it opens, which shows up as "read ECONNRESET".
+    mongoose.connect(process.env.MONGODB_URI, {
+        family: 4,
+        serverSelectionTimeoutMS: 15000,
+        maxPoolSize: 5
+    })
         .then(() => {
             console.log("MongoDB connected successfully!");
 

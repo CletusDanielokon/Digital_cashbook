@@ -1,3 +1,25 @@
 @import "tailwindcss";
-@tailwind utilities;
-@tailwind utilities;
+
+/* Dark mode follows the .dark class (set by the toggle in Settings), not the computer's theme */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Every page also loads the Tailwind CDN, which moves things with `transform`.
+   Tailwind v4 uses separate translate/scale/rotate properties, so both were applying
+   and e.g. the dark-mode switch circle moved twice as far as it should.
+   Switching v4's versions off means each effect is applied exactly once. */
+*, ::before, ::after {
+  translate: none !important;
+  scale: none !important;
+  rotate: none !important;
+}
+
+/* Popups: still scroll on very short screens, but never show a scrollbar */
+dialog,
+[class*="max-h-[92vh]"] {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+dialog::-webkit-scrollbar,
+[class*="max-h-[92vh]"]::-webkit-scrollbar {
+  display: none;
+}

@@ -166,6 +166,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
             }
 
+            // Fill in the Budget Overview card
+            await updateBudgetOverview(transactions);
+
             // Update the spending alerts and "money lasts until" panel
             if (window.CashBookInsights) {
                 window.CashBookInsights.refresh();
@@ -181,6 +184,128 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
     
+    // =========================================
+    // 7b. BUDGET OVERVIEW CARD
+    // =========================================
+    const budgetOverviewList = document.getElementById("budget-overview-list");
+    let savedMonthlyBudget = null;   // loaded once, then reused
+
+    async function loadMonthlyBudget() {
+        if (savedMonthlyBudget !== null) return savedMonthlyBudget;
+
+        const token = localStorage.getItem("cashbookToken");
+        const response = await fetch("http://localhost:5000/api/budget", {
+            method: "GET",
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || "Unable to load budget.");
+        }
+
+        savedMonthlyBudget = Number(data.budget && data.budget.amount) || 0;
+        return savedMonthlyBudget;
+    }
+
+    async function updateBudgetOverview(transactions) {
+        if (!budgetOverviewList) return;
+
+        let budget;
+        try {
+            budget = await loadMonthlyBudget();
+        } catch (error) {
+            console.error("Error loading budget overview:", error);
+            budgetOverviewList.innerHTML =
+                '<p class="text-sm text-slate-500 dark:text-slate-400">Could not load your budget. Please refresh the page.</p>';
+            return;
+        }
+
+        // Spending in the current month, in total and by category
+        const now = new Date();
+        let spent = 0;
+        const byCategory = {};
+
+        (transactions || []).forEach(function (transaction) {
+            if (transaction.type !== "expense") return;
+            const date = new Date(transaction.date + "T00:00:00");
+            if (date.getMonth() !== now.getMonth() || date.getFullYear() !== now.getFullYear()) return;
+
+            const amount = Number(transaction.amount) || 0;
+            spent += amount;
+            const category = transaction.category || "Other";
+            byCategory[category] = (byCategory[category] || 0) + amount;
+        });
+
+        // No budget yet: invite the user to set one
+        if (budget <= 0) {
+            budgetOverviewList.innerHTML =
+                '<div class="text-center py-4">' +
+                '<p class="text-sm font-medium text-slate-900 dark:text-slate-100">No monthly budget set yet</p>' +
+                '<p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Set one to see how much of it you have used.</p>' +
+                (spent > 0
+                    ? '<p class="text-sm text-slate-500 dark:text-slate-400 mt-3">Spent this month: <span class="font-semibold text-slate-900 dark:text-slate-100">' + formatNaira(spent) + "</span></p>"
+                    : "") +
+                "</div>";
+            return;
+        }
+
+        const remaining = budget - spent;
+        const percentage = (spent / budget) * 100;
+        const barWidth = Math.min(100, Math.max(0, percentage));
+
+        let barColor = "bg-green";
+        let message = "Your spending is within your monthly budget.";
+        let messageColor = "text-slate-500 dark:text-slate-400";
+
+        if (percentage >= 100) {
+            barColor = "bg-red-500";
+            message = "You have reached or exceeded your monthly budget.";
+            messageColor = "text-red-500";
+        } else if (percentage >= 80) {
+            barColor = "bg-amber-500";
+            message = "You are getting close to your monthly budget.";
+            messageColor = "text-amber-600 dark:text-amber-400";
+        }
+
+        // Top three spending categories this month
+        const top = Object.keys(byCategory)
+            .map(function (name) { return { name: name, amount: byCategory[name] }; })
+            .sort(function (a, b) { return b.amount - a.amount; })
+            .slice(0, 3);
+
+        const topHTML = top.length
+            ? '<div class="pt-4 border-t border-slate-200 dark:border-slate-700/70">' +
+              '<p class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Top spending this month</p>' +
+              '<ul class="space-y-1.5">' +
+              top.map(function (item) {
+                  return '<li class="flex items-center justify-between gap-3 text-sm">' +
+                      '<span class="truncate text-slate-700 dark:text-slate-300">' + escapeHTML(item.name) + "</span>" +
+                      '<span class="shrink-0 font-medium text-slate-900 dark:text-slate-100">' + formatNaira(item.amount) + "</span></li>";
+              }).join("") +
+              "</ul></div>"
+            : "";
+
+        budgetOverviewList.innerHTML =
+            '<div class="flex items-end justify-between gap-3">' +
+                '<div class="min-w-0"><p class="text-xs text-slate-500 dark:text-slate-400">Spent this month</p>' +
+                '<p class="text-xl font-semibold text-slate-900 dark:text-white truncate">' + formatNaira(spent) + "</p></div>" +
+                '<div class="text-right min-w-0"><p class="text-xs text-slate-500 dark:text-slate-400">Budget</p>' +
+                '<p class="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">' + formatNaira(budget) + "</p></div>" +
+            "</div>" +
+            '<div>' +
+                '<div class="h-2.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(barWidth) + '" aria-label="Budget used">' +
+                    '<div class="h-full rounded-full ' + barColor + '" style="width:' + barWidth + '%"></div>' +
+                "</div>" +
+                '<div class="flex items-center justify-between mt-1.5 text-xs text-slate-500 dark:text-slate-400">' +
+                    "<span>" + Math.round(percentage) + "% used</span>" +
+                    "<span>" + (remaining >= 0 ? formatNaira(remaining) + " left" : formatNaira(Math.abs(remaining)) + " over") + "</span>" +
+                "</div>" +
+            "</div>" +
+            '<p class="text-sm ' + messageColor + '">' + message + "</p>" +
+            topHTML;
+    }
+
     // =========================================
     // 8. DISPLAY RECENT TRANSACTIONS
     // =========================================
