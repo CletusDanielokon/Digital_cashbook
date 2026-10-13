@@ -12,6 +12,8 @@ const subtitle = document.getElementById("subtitle");
 const footer = document.getElementById("footer");
 const message = document.getElementById("message");
 
+
+
 // ===============================
 // SWITCH BETWEEN LOGIN AND SIGN UP
 // ===============================

@@ -638,6 +638,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     document
+        .getElementById("debts-link")
+        .addEventListener("click", () => {
+            window.location.href = "debts.html";
+        });
+
+
+    document
         .getElementById("reports-link")
         .addEventListener("click", () => {
             window.location.href = "reports.html";

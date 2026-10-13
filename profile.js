@@ -82,6 +82,10 @@ document.addEventListener("DOMContentLoaded", function () {
         window.location.href = "budget.html";
     });
 
+    document.getElementById("debts-link")?.addEventListener("click", function () {
+        window.location.href = "debts.html";
+    });
+
     document.getElementById("reports-link")?.addEventListener("click", function () {
         window.location.href = "reports.html";
     });

@@ -13,6 +13,7 @@ const accountRoutes = require("./routes/accountRoutes");
 const transactionRoutes = require("./routes/transactionRoutes");
 const budgetRoutes = require("./routes/budgetRoutes");
 const goalRoutes = require("./routes/goalRoutes");
+const debtRoutes = require("./routes/debtRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 
 const app = express();
@@ -97,6 +98,7 @@ app.use("/api/account", accountRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.use("/api/budget", budgetRoutes);
 app.use("/api/goals", goalRoutes);
+app.use("/api/debts", debtRoutes);
 app.use("/api/reports", reportRoutes);
 
 // Test route

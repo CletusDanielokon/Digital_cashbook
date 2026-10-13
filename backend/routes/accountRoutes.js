@@ -4,6 +4,7 @@ const User = require("../models/user");
 const Transaction = require("../models/Transaction");
 const Budget = require("../models/Budget");
 const Goal = require("../models/Goal");
+const Debt = require("../models/Debt");
 const protect = require("../middleware/authMiddleware");
 const publicUser = require("../utils/publicUser");
 const otp = require("../utils/otp");
@@ -292,6 +293,7 @@ router.delete("/", async (req, res) => {
         await Transaction.deleteMany({ user: user._id });
         await Budget.deleteMany({ user: user._id });
         await Goal.deleteMany({ user: user._id });
+        await Debt.deleteMany({ user: user._id });
         await User.deleteOne({ _id: user._id });
 
         res.json({ message: "Your account and all of its records have been deleted." });

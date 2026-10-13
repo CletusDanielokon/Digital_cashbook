@@ -343,6 +343,7 @@ document.addEventListener("DOMContentLoaded", function () {
         { id: "dashboard-link", target: "dashboard.html" },
         { id: "transactions-link", target: "transactions.html" },
         { id: "budget-link", target: "budget.html" },
+        { id: "debts-link", target: "debts.html" },
         { id: "reports-link", target: "reports.html" },
         { id: "profile-link", target: "profile.html" },
         { id: "settings-link", target: "settings.html" }

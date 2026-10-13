@@ -1389,6 +1389,7 @@ document.addEventListener("DOMContentLoaded", function () {
         { id: "transactions-link", target: "transactions.html" },
 
         { id: "budget-link", target: "budget.html" },
+        { id: "debts-link", target: "debts.html" },
 
         { id: "reports-link", target: "reports.html" },
 

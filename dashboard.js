@@ -347,6 +347,7 @@ document.addEventListener("DOMContentLoaded", function () {
         { id: "view-transactions", target: "transactions.html" },
         { id: "see-all", target: "transactions.html" },
         { id: "budget-link", target: "budget.html" },
+        { id: "debts-link", target: "debts.html" },
         { id: "view-budget", target: "budget.html" },
         { id: "reports-link", target: "reports.html" },
         { id: "profile-link", target: "profile.html" },
