@@ -267,7 +267,7 @@
                 <!-- PAGE TITLE -->
                 <div class="mb-6 sm:mb-8">
                     <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Debts</h1>
-                    <p class="text-slate-500 dark:text-slate-400 mt-1 text-sm sm:text-base">Record money people owe you and money you owe, add notes, and tick off payments as they happen.</p>
+                    <p class="text-slate-500 dark:text-slate-400 mt-1 text-sm sm:text-base">Keep track of money owed to you or by you: loans, services, goods, bills or rent. Add notes and record payments as they happen.</p>
                 </div>
 
                 <!-- SWITCH: owed to me / I owe -->
@@ -300,18 +300,18 @@
                     <div class="card card-hover p-5 border-t-2 border-t-navy dark:border-t-slate-500">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
-                                <p id="lbl-lent" class="text-sm text-slate-500 dark:text-slate-400">Total lent out</p>
+                                <p id="lbl-lent" class="text-sm text-slate-500 dark:text-slate-400">Total amount</p>
                                 <h2 id="total-lent" class="text-2xl font-semibold text-navy dark:text-slate-100 mt-2 truncate">₦0.00</h2>
                             </div>
                             <div class="badge-icon bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200"><i class="fa-solid fa-arrow-up-right-from-square"></i></div>
                         </div>
-                        <p id="sub-lent" class="text-xs text-slate-500 dark:text-slate-400 mt-3">All debts you have recorded</p>
+                        <p id="sub-lent" class="text-xs text-slate-500 dark:text-slate-400 mt-3">Everything you have recorded</p>
                     </div>
 
                     <div class="card card-hover p-5 border-t-2 border-t-emerald-500">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
-                                <p id="lbl-collected" class="text-sm text-slate-500 dark:text-slate-400">Paid back so far</p>
+                                <p id="lbl-collected" class="text-sm text-slate-500 dark:text-slate-400">Paid so far</p>
                                 <h2 id="total-collected" class="text-2xl font-semibold text-emerald-600 dark:text-emerald-400 mt-2 truncate">₦0.00</h2>
                             </div>
                             <div class="badge-icon bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><i class="fa-solid fa-circle-check"></i></div>
@@ -406,9 +406,22 @@
                 </div>
             </div>
 
+            <div>
+                <label for="debt-category" class="field-label">What is it for? <span class="font-normal text-slate-400">(optional)</span></label>
+                <select id="debt-category" class="field">
+                    <option value="">Not specified</option>
+                    <option value="loan">Loan (cash)</option>
+                    <option value="service">Service</option>
+                    <option value="goods">Goods / items</option>
+                    <option value="bill">Bill</option>
+                    <option value="rent">Rent</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+
             <div class="grid grid-cols-1 min-[420px]:grid-cols-2 gap-4">
                 <div>
-                    <label id="lbl-date" for="debt-date" class="field-label">Date given</label>
+                    <label id="lbl-date" for="debt-date" class="field-label">Date</label>
                     <input type="date" id="debt-date" required class="field">
                 </div>
                 <div>
@@ -419,7 +432,7 @@
 
             <div>
                 <label for="debt-note" class="field-label">Note <span class="font-normal text-slate-400">(optional)</span></label>
-                <textarea id="debt-note" rows="2" maxlength="1000" placeholder="What was it for? Any agreement or promise worth remembering..." class="field h-auto py-2.5 resize-none"></textarea>
+                <textarea id="debt-note" rows="2" maxlength="1000" placeholder="Details, agreement or anything worth remembering..." class="field h-auto py-2.5 resize-none"></textarea>
             </div>
 
             <p id="debt-form-error" class="hidden text-sm text-red-500" role="alert"></p>

@@ -69,30 +69,37 @@ document.addEventListener("DOMContentLoaded", function () {
     // 4. HELPERS
     // =========================================
 
-    // Wording for each tab, so one page serves both "owed to me" and "I owe"
+    // What the money is for (the value is saved on the server)
+    const CATEGORY_LABELS = {
+        loan: "Loan", service: "Service", goods: "Goods / items",
+        bill: "Bill", rent: "Rent", other: "Other"
+    };
+
+    // Wording for each tab, so one page serves both "owed to me" and "I owe".
+    // It avoids "lent" / "borrowed" because many debts are services, bills or rent.
     const WORDS = {
         owed_to_me: {
-            owed: "Still owed to you", lent: "Total lent out", lentSub: "All money you have lent",
-            collected: "Paid back so far", collectedSub: "Payments you have received",
+            owed: "Still owed to you", lent: "Total amount", lentSub: "Everything you have recorded",
+            collected: "Paid so far", collectedSub: "Payments you have received",
             owedPeople: ["No one owes you right now", " person still owes you", " people still owe you"],
             overduePeople: ["Nothing is late", " debt is past its due date", " debts are past their due date"],
             addButton: "Add debt", addTitle: "Add debt", editTitle: "Edit debt",
-            person: "Who owes you?", phoneHint: "(optional, for WhatsApp reminders)", date: "Date given",
+            person: "Who owes you?", phoneHint: "(optional, for WhatsApp reminders)", date: "Date",
             payTitle: "Record a payment", payAmount: "Amount received (₦)", payDate: "Date received",
-            payList: "Payments received", leftOf: "still owed of", paidPct: "paid back", repaid: "fully repaid",
-            emptyAll: "No debts recorded yet. Press <strong>Add debt</strong> to note down someone who owes you money.",
+            payList: "Payments received", leftOf: "still owed of", paidPct: "paid", repaid: "fully paid",
+            emptyAll: "Nothing recorded yet. Press <strong>Add debt</strong> to note down someone who owes you money.",
             emptyAllPaid: "Everyone has paid you back.",
             toast: "Debt"
         },
         i_owe: {
-            owed: "You still owe", lent: "Total borrowed", lentSub: "All money you have borrowed",
-            collected: "You have paid back", collectedSub: "Payments you have made",
+            owed: "You still owe", lent: "Total amount", lentSub: "Everything you have recorded",
+            collected: "You have paid", collectedSub: "Payments you have made",
             owedPeople: ["You do not owe anyone right now", " person is waiting to be paid", " people are waiting to be paid"],
             overduePeople: ["Nothing is late", " payment is past its due date", " payments are past their due date"],
             addButton: "Add what I owe", addTitle: "Add money I owe", editTitle: "Edit what I owe",
-            person: "Who do you owe?", phoneHint: "(optional)", date: "Date you borrowed it",
+            person: "Who do you owe?", phoneHint: "(optional)", date: "Date",
             payTitle: "Record a payment you made", payAmount: "Amount you paid (₦)", payDate: "Date you paid",
-            payList: "Payments you made", leftOf: "left to pay of", paidPct: "paid off", repaid: "fully paid off",
+            payList: "Payments you made", leftOf: "left to pay of", paidPct: "paid", repaid: "fully paid",
             emptyAll: "You have not recorded any money you owe. Press <strong>Add what I owe</strong> to start.",
             emptyAllPaid: "You have paid everyone you owe.",
             toast: "Debt"
@@ -289,7 +296,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (show === "paid" && status !== "paid") return false;
             if (show === "overdue" && status !== "overdue") return false;
             if (search) {
-                const text = (d.personName + " " + (d.note || "")).toLowerCase();
+                const text = (d.personName + " " + (d.note || "") + " " + (CATEGORY_LABELS[d.category] || "")).toLowerCase();
                 if (!text.includes(search)) return false;
             }
             return true;
@@ -326,6 +333,12 @@ document.addEventListener("DOMContentLoaded", function () {
             return '<span class="pill bg-amber-500/10 text-amber-600 dark:text-amber-400"><i class="fa-regular fa-calendar"></i> ' + label + "</span>";
         }
         return '<span class="pill bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">No due date</span>';
+    }
+
+    function categoryPill(debt) {
+        const label = CATEGORY_LABELS[debt.category];
+        if (!label) return "";
+        return '<span class="pill bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">' + escapeHTML(label) + "</span>";
     }
 
     function paymentsHTML(debt) {
@@ -370,7 +383,7 @@ document.addEventListener("DOMContentLoaded", function () {
             '<div class="flex items-start justify-between gap-3">' +
                 '<div class="min-w-0">' +
                     '<h3 class="text-base font-semibold text-slate-900 dark:text-white break-words">' + escapeHTML(debt.personName) + "</h3>" +
-                    '<div class="mt-1.5">' + statusPill(debt) + "</div>" +
+                    '<div class="mt-1.5 flex flex-wrap items-center gap-1.5">' + statusPill(debt) + categoryPill(debt) + "</div>" +
                 "</div>" +
                 '<div class="text-right shrink-0">' +
                     '<p class="text-xl font-semibold ' + (status === "paid" ? "text-emerald-600 dark:text-emerald-400" : "text-slate-900 dark:text-white") + '">' +
@@ -391,7 +404,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             // dates + phone
             '<p class="mt-3 text-xs text-slate-500 dark:text-slate-400 break-words">' +
-                '<i class="fa-regular fa-calendar mr-1"></i>' + (directionOf(debt) === "i_owe" ? "Borrowed " : "Given ") + escapeHTML(formatDay(debt.dateLent)) +
+                '<i class="fa-regular fa-calendar mr-1"></i>' + 'Dated ' + escapeHTML(formatDay(debt.dateLent)) +
                 (debt.dueDate ? ' &nbsp;·&nbsp; Due ' + escapeHTML(formatDay(debt.dueDate)) : "") +
                 (debt.phone ? ' &nbsp;·&nbsp; <i class="fa-solid fa-phone mr-1"></i>' + escapeHTML(debt.phone) : "") +
             "</p>" +
@@ -489,6 +502,7 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("debt-date").value = debt ? debt.dateLent : todayText();
         document.getElementById("debt-due").value = debt ? debt.dueDate : "";
         document.getElementById("debt-note").value = debt ? debt.note : "";
+        document.getElementById("debt-category").value = debt ? (debt.category || "") : "";
 
         debtModal.showModal();
         document.getElementById("debt-person").focus();
@@ -505,6 +519,7 @@ document.addEventListener("DOMContentLoaded", function () {
             dateLent: document.getElementById("debt-date").value,
             dueDate: document.getElementById("debt-due").value,
             note: document.getElementById("debt-note").value.trim(),
+            category: document.getElementById("debt-category").value,
             direction: formDirection
         };
 
@@ -514,9 +529,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 : "Please enter the name of the person who owes you.");
         }
         if (!(body.amount > 0)) return showFormError(debtFormError, "Please enter an amount greater than zero.");
-        if (!body.dateLent) return showFormError(debtFormError, "Please choose the date for this debt.");
+        if (!body.dateLent) return showFormError(debtFormError, "Please choose a date.");
         if (body.dueDate && body.dueDate < body.dateLent) {
-            return showFormError(debtFormError, "The due date cannot be before the date the debt started.");
+            return showFormError(debtFormError, "The due date cannot be before the date of the debt.");
         }
 
         saveDebtButton.disabled = true;
@@ -623,8 +638,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
             const due = debt.dueDate ? ", due on " + formatDay(debt.dueDate) : "";
+            const forWhat = CATEGORY_LABELS[debt.category] && debt.category !== "other"
+                ? " (" + CATEGORY_LABELS[debt.category].toLowerCase() + ")" : "";
             const message = "Hello " + debt.personName + ", this is a friendly reminder about the " +
-                formatNaira(debt.remaining) + " you owe me" + due +
+                formatNaira(debt.remaining) + " you owe me" + forWhat + due +
                 ". Please let me know when you can pay. Thank you.";
             window.open("https://wa.me/" + number + "?text=" + encodeURIComponent(message), "_blank", "noopener");
             return;

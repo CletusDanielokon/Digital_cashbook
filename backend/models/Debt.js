@@ -39,6 +39,13 @@ const debtSchema = new mongoose.Schema(
             default: "owed_to_me"
         },
 
+        // What the money is for. Empty = not specified.
+        category: {
+            type: String,
+            enum: ["", "loan", "service", "goods", "bill", "rent", "other"],
+            default: ""
+        },
+
         personName: {
             type: String,
             required: true,

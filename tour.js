@@ -44,7 +44,7 @@
             tab: "Debts",
             icon: "fa-hand-holding-dollar",
             title: "Debts",
-            text: "Keep track of money people owe you and money you owe. Add notes, record part-payments, see what is overdue and send a WhatsApp reminder."
+            text: "Keep track of money people owe you and money you owe: loans, services, bills or rent. Add notes, record part-payments, see what is overdue and send a WhatsApp reminder."
         },
         {
             tab: "Reports",
