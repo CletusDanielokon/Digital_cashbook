@@ -19,12 +19,21 @@ const round2 = (n) => Math.round(n * 100) / 100;
 function present(debt) {
     const plain = debt.toObject();
     const paid = round2((plain.payments || []).reduce((sum, p) => sum + p.amount, 0));
+    plain.direction = plain.direction || "owed_to_me";
     plain.amountPaid = paid;
     plain.remaining = Math.max(0, round2(plain.amount - paid));
     return plain;
 }
 
-function validateDebt(body) {
+const DIRECTIONS = ["owed_to_me", "i_owe"];
+
+// existingDirection is used when editing, so an edit that does not mention it keeps it
+function validateDebt(body, existingDirection) {
+    const direction = body.direction === undefined || body.direction === ""
+        ? (existingDirection || "owed_to_me")
+        : String(body.direction);
+    if (!DIRECTIONS.includes(direction)) return { error: "Please choose whether this is money you owe or money owed to you." };
+    const owes = direction === "i_owe";
     const personName = String(body.personName || "").trim();
     const phone = String(body.phone || "").trim();
     const note = String(body.note || "").trim();
@@ -32,16 +41,16 @@ function validateDebt(body) {
     const dateLent = String(body.dateLent || "").trim();
     const dueDate = String(body.dueDate || "").trim();
 
-    if (!personName) return { error: "Please enter the name of the person who owes you." };
+    if (!personName) return { error: owes ? "Please enter the name of the person you owe." : "Please enter the name of the person who owes you." };
     if (personName.length > 100) return { error: "The name is too long (100 characters at most)." };
     if (!(amount > 0)) return { error: "Please enter an amount greater than zero." };
-    if (!isRealDate(dateLent)) return { error: "Please choose a valid date for when the money was given." };
+    if (!isRealDate(dateLent)) return { error: owes ? "Please choose a valid date for when you borrowed the money." : "Please choose a valid date for when the money was given." };
     if (dueDate && !isRealDate(dueDate)) return { error: "The due date is not valid." };
-    if (dueDate && dueDate < dateLent) return { error: "The due date cannot be before the date the money was given." };
+    if (dueDate && dueDate < dateLent) return { error: owes ? "The due date cannot be before the date you borrowed the money." : "The due date cannot be before the date the money was given." };
     if (phone && !/^[0-9+\s\-().]{5,30}$/.test(phone)) return { error: "The phone number can only contain digits, spaces and + - ( )." };
     if (note.length > 1000) return { error: "The note is too long (1000 characters at most)." };
 
-    return { personName, phone, amount, note, dateLent, dueDate };
+    return { direction, personName, phone, amount, note, dateLent, dueDate };
 }
 
 // Stops a badly formed id from crashing the request
@@ -80,11 +89,11 @@ router.post("/", protect, async (req, res) => {
 // UPDATE the details of a debt (payments are changed on their own routes below)
 router.put("/:id", protect, checkId, async (req, res) => {
     try {
-        const result = validateDebt(req.body);
-        if (result.error) return res.status(400).json({ message: result.error });
-
         const debt = await Debt.findOne({ _id: req.params.id, user: req.userId });
         if (!debt) return res.status(404).json({ message: "Debt not found." });
+
+        const result = validateDebt(req.body, debt.direction);
+        if (result.error) return res.status(400).json({ message: result.error });
 
         const paid = round2(debt.payments.reduce((sum, p) => sum + p.amount, 0));
         if (result.amount < paid) {

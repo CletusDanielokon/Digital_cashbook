@@ -109,6 +109,19 @@
         /* Dialogs */
         dialog.cb-dialog { margin: auto; max-height: 92vh; overflow-x: hidden; scrollbar-width: none; -ms-overflow-style: none; }
         dialog.cb-dialog::-webkit-scrollbar { display: none; }
+        /* Owed to me / I owe switch */
+        .debt-switch { display: inline-flex; padding: 4px; gap: 4px; border-radius: 12px; background: #e2e8f0; }
+        .dark .debt-switch { background: #1e293b; }
+        .debt-tab { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 9px; border: 0; cursor: pointer;
+                    font-size: 14px; font-weight: 600; color: #475569; background: transparent; transition: background .15s, color .15s; }
+        .dark .debt-tab { color: #94a3b8; }
+        .debt-tab:hover { color: #0f172a; }
+        .dark .debt-tab:hover { color: #f1f5f9; }
+        .debt-tab[aria-selected="true"] { background: #ffffff; color: #0f172a; box-shadow: 0 1px 3px rgb(15 23 42 / .15); }
+        .dark .debt-tab[aria-selected="true"] { background: #334155; color: #f1f5f9; box-shadow: none; }
+        .debt-tab:focus-visible { outline: 3px solid rgb(34 197 94 / .45); outline-offset: 1px; }
+        .debt-count { min-width: 20px; padding: 0 6px; border-radius: 99px; font-size: 12px; line-height: 20px; text-align: center; background: rgb(100 116 139 / .18); }
+        .debt-tab[aria-selected="true"] .debt-count { background: rgb(34 197 94 / .18); color: #16a34a; }
         dialog.cb-dialog::backdrop { background: rgb(15 23 42 / .6); backdrop-filter: blur(2px); }
 
         @media (prefers-reduced-motion: reduce) {
@@ -254,7 +267,20 @@
                 <!-- PAGE TITLE -->
                 <div class="mb-6 sm:mb-8">
                     <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Debts</h1>
-                    <p class="text-slate-500 dark:text-slate-400 mt-1 text-sm sm:text-base">Record who owes you, add notes, and tick off payments as they come in.</p>
+                    <p class="text-slate-500 dark:text-slate-400 mt-1 text-sm sm:text-base">Record money people owe you and money you owe, add notes, and tick off payments as they happen.</p>
+                </div>
+
+                <!-- SWITCH: owed to me / I owe -->
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-3 mb-6">
+                    <div class="debt-switch" role="tablist" aria-label="Type of debt">
+                        <button type="button" id="view-owed" role="tab" aria-selected="true" class="debt-tab">
+                            Owed to me <span id="count-owed" class="debt-count">0</span>
+                        </button>
+                        <button type="button" id="view-owe" role="tab" aria-selected="false" class="debt-tab">
+                            I owe <span id="count-owe" class="debt-count">0</span>
+                        </button>
+                    </div>
+                    <p id="net-position" class="text-sm text-slate-500 dark:text-slate-400"></p>
                 </div>
 
                 <!-- SUMMARY CARDS -->
@@ -263,7 +289,7 @@
                     <div class="card card-hover p-5 border-t-2 border-t-green">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
-                                <p class="text-sm text-slate-500 dark:text-slate-400">Still owed to you</p>
+                                <p id="lbl-owed" class="text-sm text-slate-500 dark:text-slate-400">Still owed to you</p>
                                 <h2 id="total-owed" class="text-2xl font-semibold text-green mt-2 truncate">₦0.00</h2>
                             </div>
                             <div class="badge-icon bg-green/10 text-green"><i class="fa-solid fa-hand-holding-dollar"></i></div>
@@ -274,23 +300,23 @@
                     <div class="card card-hover p-5 border-t-2 border-t-navy dark:border-t-slate-500">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
-                                <p class="text-sm text-slate-500 dark:text-slate-400">Total lent out</p>
+                                <p id="lbl-lent" class="text-sm text-slate-500 dark:text-slate-400">Total lent out</p>
                                 <h2 id="total-lent" class="text-2xl font-semibold text-navy dark:text-slate-100 mt-2 truncate">₦0.00</h2>
                             </div>
                             <div class="badge-icon bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200"><i class="fa-solid fa-arrow-up-right-from-square"></i></div>
                         </div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">All debts you have recorded</p>
+                        <p id="sub-lent" class="text-xs text-slate-500 dark:text-slate-400 mt-3">All debts you have recorded</p>
                     </div>
 
                     <div class="card card-hover p-5 border-t-2 border-t-emerald-500">
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0">
-                                <p class="text-sm text-slate-500 dark:text-slate-400">Paid back so far</p>
+                                <p id="lbl-collected" class="text-sm text-slate-500 dark:text-slate-400">Paid back so far</p>
                                 <h2 id="total-collected" class="text-2xl font-semibold text-emerald-600 dark:text-emerald-400 mt-2 truncate">₦0.00</h2>
                             </div>
                             <div class="badge-icon bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><i class="fa-solid fa-circle-check"></i></div>
                         </div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-3">Payments you have received</p>
+                        <p id="sub-collected" class="text-xs text-slate-500 dark:text-slate-400 mt-3">Payments you have received</p>
                     </div>
 
                     <div class="card card-hover p-5 border-t-2 border-t-red-500">
@@ -326,7 +352,7 @@
                             </select>
                         </div>
                         <button id="add-debt" type="button" class="btn-primary">
-                            <i class="fa-solid fa-plus text-xs"></i> Add debt
+                            <i class="fa-solid fa-plus text-xs"></i> <span id="add-debt-label">Add debt</span>
                         </button>
                     </div>
                 </div>
@@ -363,12 +389,12 @@
         <form id="debt-form" class="p-4 sm:p-5 space-y-3" novalidate>
 
             <div>
-                <label for="debt-person" class="field-label">Who owes you?</label>
+                <label id="lbl-person" for="debt-person" class="field-label">Who owes you?</label>
                 <input type="text" id="debt-person" maxlength="100" placeholder="e.g. Emeka" required class="field" autocomplete="off">
             </div>
 
             <div>
-                <label for="debt-phone" class="field-label">Phone number <span class="font-normal text-slate-400">(optional, for WhatsApp reminders)</span></label>
+                <label for="debt-phone" class="field-label">Phone number <span id="hint-phone" class="font-normal text-slate-400">(optional, for WhatsApp reminders)</span></label>
                 <input type="tel" id="debt-phone" maxlength="30" placeholder="e.g. 08012345678" class="field" autocomplete="off">
             </div>
 
@@ -382,7 +408,7 @@
 
             <div class="grid grid-cols-1 min-[420px]:grid-cols-2 gap-4">
                 <div>
-                    <label for="debt-date" class="field-label">Date given</label>
+                    <label id="lbl-date" for="debt-date" class="field-label">Date given</label>
                     <input type="date" id="debt-date" required class="field">
                 </div>
                 <div>
@@ -416,7 +442,7 @@
 
         <div class="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-slate-200 dark:border-slate-700">
             <div class="min-w-0">
-                <h2 class="text-lg font-semibold truncate">Record a payment</h2>
+                <h2 id="payment-title" class="text-lg font-semibold truncate">Record a payment</h2>
                 <p id="payment-subtitle" class="text-xs text-slate-500 dark:text-slate-400 truncate"></p>
             </div>
             <button id="close-payment-modal" type="button" class="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30" aria-label="Close">
@@ -427,7 +453,7 @@
         <form id="payment-form" class="p-4 sm:p-5 space-y-3" novalidate>
 
             <div>
-                <label for="payment-amount" class="field-label">Amount received (₦)</label>
+                <label id="lbl-payment-amount" for="payment-amount" class="field-label">Amount received (₦)</label>
                 <div class="relative">
                     <span class="absolute inset-y-0 left-3.5 flex items-center text-lg font-semibold text-slate-400 pointer-events-none">₦</span>
                     <input type="number" id="payment-amount" min="0.01" step="0.01" required class="field h-12 pl-9 text-lg font-semibold">
@@ -436,7 +462,7 @@
             </div>
 
             <div>
-                <label for="payment-date" class="field-label">Date received</label>
+                <label id="lbl-payment-date" for="payment-date" class="field-label">Date received</label>
                 <input type="date" id="payment-date" required class="field">
             </div>
 

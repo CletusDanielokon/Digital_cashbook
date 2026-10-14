@@ -56,13 +56,53 @@ document.addEventListener("DOMContentLoaded", function () {
     const paymentFormError = document.getElementById("payment-form-error");
 
     let debts = [];
+    let view = "owed_to_me";   // which tab is showing: "owed_to_me" or "i_owe"
+    try {
+        if (sessionStorage.getItem("cashbookDebtView") === "i_owe") view = "i_owe";
+    } catch (e) { /* ignore */ }
     let editingId = null;      // debt being edited (null = adding a new one)
+    let formDirection = "owed_to_me";   // direction of the debt in the open form
     let payingId = null;       // debt receiving a payment
     const openDetails = new Set();   // debts whose payment history is expanded
 
     // =========================================
     // 4. HELPERS
     // =========================================
+
+    // Wording for each tab, so one page serves both "owed to me" and "I owe"
+    const WORDS = {
+        owed_to_me: {
+            owed: "Still owed to you", lent: "Total lent out", lentSub: "All money you have lent",
+            collected: "Paid back so far", collectedSub: "Payments you have received",
+            owedPeople: ["No one owes you right now", " person still owes you", " people still owe you"],
+            overduePeople: ["Nothing is late", " debt is past its due date", " debts are past their due date"],
+            addButton: "Add debt", addTitle: "Add debt", editTitle: "Edit debt",
+            person: "Who owes you?", phoneHint: "(optional, for WhatsApp reminders)", date: "Date given",
+            payTitle: "Record a payment", payAmount: "Amount received (₦)", payDate: "Date received",
+            payList: "Payments received", leftOf: "still owed of", paidPct: "paid back", repaid: "fully repaid",
+            emptyAll: "No debts recorded yet. Press <strong>Add debt</strong> to note down someone who owes you money.",
+            emptyAllPaid: "Everyone has paid you back.",
+            toast: "Debt"
+        },
+        i_owe: {
+            owed: "You still owe", lent: "Total borrowed", lentSub: "All money you have borrowed",
+            collected: "You have paid back", collectedSub: "Payments you have made",
+            owedPeople: ["You do not owe anyone right now", " person is waiting to be paid", " people are waiting to be paid"],
+            overduePeople: ["Nothing is late", " payment is past its due date", " payments are past their due date"],
+            addButton: "Add what I owe", addTitle: "Add money I owe", editTitle: "Edit what I owe",
+            person: "Who do you owe?", phoneHint: "(optional)", date: "Date you borrowed it",
+            payTitle: "Record a payment you made", payAmount: "Amount you paid (₦)", payDate: "Date you paid",
+            payList: "Payments you made", leftOf: "left to pay of", paidPct: "paid off", repaid: "fully paid off",
+            emptyAll: "You have not recorded any money you owe. Press <strong>Add what I owe</strong> to start.",
+            emptyAllPaid: "You have paid everyone you owe.",
+            toast: "Debt"
+        }
+    };
+
+    function words(direction) { return WORDS[direction || view] || WORDS.owed_to_me; }
+    function directionOf(debt) { return debt.direction === "i_owe" ? "i_owe" : "owed_to_me"; }
+    function debtsInView() { return debts.filter(function (d) { return directionOf(d) === view; }); }
+
     function formatNaira(amount) {
         return new Intl.NumberFormat("en-NG", {
             style: "currency",
@@ -188,8 +228,32 @@ document.addEventListener("DOMContentLoaded", function () {
     function updateSummary() {
         let owed = 0, lent = 0, collected = 0, overdue = 0;
         let owedPeople = 0, overduePeople = 0;
+        const w = words();
 
+        // numbers for the little counters on the two tabs, and the overall position
+        let toMe = 0, toThem = 0, countToMe = 0, countToThem = 0;
         debts.forEach(function (d) {
+            if (d.remaining <= 0) return;
+            if (directionOf(d) === "i_owe") { toThem += d.remaining; countToThem++; }
+            else { toMe += d.remaining; countToMe++; }
+        });
+        setText("count-owed", String(countToMe));
+        setText("count-owe", String(countToThem));
+
+        const net = toMe - toThem;
+        setText("net-position", toMe === 0 && toThem === 0
+            ? ""
+            : net > 0 ? "Overall, you are owed " + formatNaira(net) + " more than you owe."
+            : net < 0 ? "Overall, you owe " + formatNaira(-net) + " more than you are owed."
+            : "Overall, what you owe and what you are owed cancel out.");
+
+        setText("lbl-owed", w.owed);
+        setText("lbl-lent", w.lent);
+        setText("sub-lent", w.lentSub);
+        setText("lbl-collected", w.collected);
+        setText("sub-collected", w.collectedSub);
+
+        debtsInView().forEach(function (d) {
             lent += d.amount;
             collected += d.amountPaid;
             if (d.remaining > 0) {
@@ -208,18 +272,18 @@ document.addEventListener("DOMContentLoaded", function () {
         setText("total-overdue", formatNaira(overdue));
 
         setText("owed-people", owedPeople === 0
-            ? "No one owes you right now"
-            : owedPeople + (owedPeople === 1 ? " person still owes you" : " people still owe you"));
+            ? w.owedPeople[0]
+            : owedPeople + (owedPeople === 1 ? w.owedPeople[1] : w.owedPeople[2]));
         setText("overdue-people", overduePeople === 0
-            ? "Nothing is late"
-            : overduePeople + (overduePeople === 1 ? " debt is past its due date" : " debts are past their due date"));
+            ? w.overduePeople[0]
+            : overduePeople + (overduePeople === 1 ? w.overduePeople[1] : w.overduePeople[2]));
     }
 
     function visibleDebts() {
         const search = searchInput.value.trim().toLowerCase();
         const show = statusSelect.value;
 
-        const rows = debts.filter(function (d) {
+        const rows = debtsInView().filter(function (d) {
             const status = statusOf(d);
             if (show === "unpaid" && status === "paid") return false;
             if (show === "paid" && status !== "paid") return false;
@@ -283,7 +347,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         return '<details class="mt-4 group" data-details="' + escapeHTML(debt._id) + '"' + open + ">" +
             '<summary class="cursor-pointer select-none text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-green">' +
-            "Payments received (" + debt.payments.length + ")</summary>" +
+            words(directionOf(debt)).payList + " (" + debt.payments.length + ")</summary>" +
             '<ul class="mt-2 divide-y divide-slate-100 dark:divide-slate-700/50">' + rows + "</ul></details>";
     }
 
@@ -296,7 +360,9 @@ document.addEventListener("DOMContentLoaded", function () {
         const border = status === "overdue" ? "border-l-4 border-l-red-500" :
             status === "paid" ? "border-l-4 border-l-emerald-500" : "border-l-4 border-l-green";
 
-        const canRemind = status !== "paid" && !!debt.phone;
+        const w = words(directionOf(debt));
+        // Reminders go to people who owe YOU, never to people you owe
+        const canRemind = directionOf(debt) === "owed_to_me" && status !== "paid" && !!debt.phone;
 
         return '<article class="card p-4 sm:p-5 ' + border + '">' +
 
@@ -310,7 +376,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     '<p class="text-xl font-semibold ' + (status === "paid" ? "text-emerald-600 dark:text-emerald-400" : "text-slate-900 dark:text-white") + '">' +
                         (status === "paid" ? formatNaira(debt.amount) : formatNaira(debt.remaining)) + "</p>" +
                     '<p class="text-xs text-slate-500 dark:text-slate-400">' +
-                        (status === "paid" ? "fully repaid" : "still owed of " + formatNaira(debt.amount)) + "</p>" +
+                        (status === "paid" ? w.repaid : w.leftOf + " " + formatNaira(debt.amount)) + "</p>" +
                 "</div>" +
             "</div>" +
 
@@ -320,12 +386,12 @@ document.addEventListener("DOMContentLoaded", function () {
                     '<div class="h-full rounded-full ' + barColor + '" style="width:' + percent + '%"></div>' +
                 "</div>" +
             "</div>" +
-            '<p class="mt-1.5 text-xs text-slate-500 dark:text-slate-400">' + percent + "% paid back" +
+            '<p class="mt-1.5 text-xs text-slate-500 dark:text-slate-400">' + percent + "% " + w.paidPct +
                 (debt.amountPaid > 0 ? " (" + formatNaira(debt.amountPaid) + ")" : "") + "</p>" +
 
             // dates + phone
             '<p class="mt-3 text-xs text-slate-500 dark:text-slate-400 break-words">' +
-                '<i class="fa-regular fa-calendar mr-1"></i>Given ' + escapeHTML(formatDay(debt.dateLent)) +
+                '<i class="fa-regular fa-calendar mr-1"></i>' + (directionOf(debt) === "i_owe" ? "Borrowed " : "Given ") + escapeHTML(formatDay(debt.dateLent)) +
                 (debt.dueDate ? ' &nbsp;·&nbsp; Due ' + escapeHTML(formatDay(debt.dueDate)) : "") +
                 (debt.phone ? ' &nbsp;·&nbsp; <i class="fa-solid fa-phone mr-1"></i>' + escapeHTML(debt.phone) : "") +
             "</p>" +
@@ -354,15 +420,28 @@ document.addEventListener("DOMContentLoaded", function () {
         "</article>";
     }
 
+    // Keep the two tab buttons and the Add button in step with the current view
+    function syncTabs() {
+        const owedTab = document.getElementById("view-owed");
+        const oweTab = document.getElementById("view-owe");
+        owedTab.setAttribute("aria-selected", view === "owed_to_me" ? "true" : "false");
+        oweTab.setAttribute("aria-selected", view === "i_owe" ? "true" : "false");
+        owedTab.tabIndex = view === "owed_to_me" ? 0 : -1;
+        oweTab.tabIndex = view === "i_owe" ? 0 : -1;
+        setText("add-debt-label", words().addButton);
+    }
+
     function render() {
+        syncTabs();
         updateSummary();
 
         const rows = visibleDebts();
 
         if (!rows.length) {
+            const w = words();
             let message;
-            if (!debts.length) {
-                message = "No debts recorded yet. Press <strong>Add debt</strong> to note down someone who owes you money.";
+            if (!debtsInView().length) {
+                message = w.emptyAll;
             } else if (searchInput.value.trim()) {
                 message = "No debt matches your search.";
             } else if (statusSelect.value === "overdue") {
@@ -370,7 +449,7 @@ document.addEventListener("DOMContentLoaded", function () {
             } else if (statusSelect.value === "paid") {
                 message = "No debt has been fully paid yet.";
             } else {
-                message = "Everyone has paid you back.";
+                message = w.emptyAllPaid;
             }
             listEl.innerHTML =
                 '<div class="card p-10 text-center text-sm text-slate-500 dark:text-slate-400">' + message + "</div>";
@@ -395,9 +474,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function openDebtForm(debt) {
         editingId = debt ? debt._id : null;
+        formDirection = debt ? directionOf(debt) : view;
         clearFormError(debtFormError);
 
-        setText("debt-modal-title", debt ? "Edit debt" : "Add debt");
+        const w = words(formDirection);
+        setText("debt-modal-title", debt ? w.editTitle : w.addTitle);
+        setText("lbl-person", w.person);
+        setText("hint-phone", w.phoneHint);
+        setText("lbl-date", w.date);
 
         document.getElementById("debt-person").value = debt ? debt.personName : "";
         document.getElementById("debt-phone").value = debt ? debt.phone : "";
@@ -420,14 +504,19 @@ document.addEventListener("DOMContentLoaded", function () {
             amount: Number(document.getElementById("debt-amount").value),
             dateLent: document.getElementById("debt-date").value,
             dueDate: document.getElementById("debt-due").value,
-            note: document.getElementById("debt-note").value.trim()
+            note: document.getElementById("debt-note").value.trim(),
+            direction: formDirection
         };
 
-        if (!body.personName) return showFormError(debtFormError, "Please enter the name of the person who owes you.");
+        if (!body.personName) {
+            return showFormError(debtFormError, formDirection === "i_owe"
+                ? "Please enter the name of the person you owe."
+                : "Please enter the name of the person who owes you.");
+        }
         if (!(body.amount > 0)) return showFormError(debtFormError, "Please enter an amount greater than zero.");
-        if (!body.dateLent) return showFormError(debtFormError, "Please choose the date the money was given.");
+        if (!body.dateLent) return showFormError(debtFormError, "Please choose the date for this debt.");
         if (body.dueDate && body.dueDate < body.dateLent) {
-            return showFormError(debtFormError, "The due date cannot be before the date the money was given.");
+            return showFormError(debtFormError, "The due date cannot be before the date the debt started.");
         }
 
         saveDebtButton.disabled = true;
@@ -460,7 +549,11 @@ document.addEventListener("DOMContentLoaded", function () {
         payingId = debt._id;
         clearFormError(paymentFormError);
 
-        setText("payment-subtitle", debt.personName + " · " + formatNaira(debt.remaining) + " still owed");
+        const w = words(directionOf(debt));
+        setText("payment-title", w.payTitle);
+        setText("lbl-payment-amount", w.payAmount);
+        setText("lbl-payment-date", w.payDate);
+        setText("payment-subtitle", debt.personName + " · " + formatNaira(debt.remaining) + (directionOf(debt) === "i_owe" ? " left to pay" : " still owed"));
 
         const amountInput = document.getElementById("payment-amount");
         amountInput.value = "";
@@ -494,14 +587,14 @@ document.addEventListener("DOMContentLoaded", function () {
         if (body.amount > debt.remaining + 0.001) {
             return showFormError(paymentFormError, "That is more than the " + formatNaira(debt.remaining) + " still owed.");
         }
-        if (!body.date) return showFormError(paymentFormError, "Please choose the date you received it.");
+        if (!body.date) return showFormError(paymentFormError, "Please choose the date of the payment.");
 
         try {
             const data = await api("POST", "/" + payingId + "/payments", body);
             debts = debts.map(function (d) { return d._id === payingId ? data.debt : d; });
             paymentModal.close();
             render();
-            showToast(data.debt.remaining <= 0 ? "Fully paid back. 🎉" : "Payment recorded.");
+            showToast(data.debt.remaining <= 0 ? (directionOf(data.debt) === "i_owe" ? "Fully paid off. 🎉" : "Fully paid back. 🎉") : "Payment recorded.");
         } catch (error) {
             showFormError(paymentFormError, error.message);
         }
@@ -538,7 +631,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         if (action === "delete") {
-            if (!confirm("Delete the debt for " + debt.personName + "? This cannot be undone.")) return;
+            if (!confirm("Delete the debt " + (directionOf(debt) === "i_owe" ? "to " : "for ") + debt.personName + "? This cannot be undone.")) return;
             try {
                 await api("DELETE", "/" + debt._id);
                 debts = debts.filter(function (d) { return d._id !== debt._id; });
@@ -551,7 +644,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         if (action === "delete-payment") {
-            if (!confirm("Remove this payment? The balance owed will go back up.")) return;
+            if (!confirm("Remove this payment? The balance will go back up.")) return;
             try {
                 const data = await api("DELETE", "/" + debt._id + "/payments/" + button.dataset.payment);
                 debts = debts.map(function (d) { return d._id === debt._id ? data.debt : d; });
@@ -586,6 +679,24 @@ document.addEventListener("DOMContentLoaded", function () {
         dialog.addEventListener("click", function (event) {
             if (event.target === dialog) dialog.close();
         });
+    });
+
+    function switchView(next) {
+        if (view === next) return;
+        view = next;
+        try { sessionStorage.setItem("cashbookDebtView", view); } catch (e) { /* ignore */ }
+        render();
+    }
+
+    document.getElementById("view-owed").addEventListener("click", function () { switchView("owed_to_me"); });
+    document.getElementById("view-owe").addEventListener("click", function () { switchView("i_owe"); });
+
+    // Arrow keys move between the two tabs (standard tab behaviour)
+    document.querySelector(".debt-switch").addEventListener("keydown", function (event) {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+        event.preventDefault();
+        switchView(view === "owed_to_me" ? "i_owe" : "owed_to_me");
+        document.getElementById(view === "owed_to_me" ? "view-owed" : "view-owe").focus();
     });
 
     searchInput.addEventListener("input", render);

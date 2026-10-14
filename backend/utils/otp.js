@@ -47,6 +47,21 @@ const delivery = {
                     "</div>"
             });
         } else {
+            // PHONE_CODE_CHANNEL in .env: "sms" (default), "whatsapp" or "both".
+            //   whatsapp -> WhatsApp first; if that request fails the code goes by SMS instead
+            //   both     -> WhatsApp and SMS together
+            const mode = String(process.env.PHONE_CODE_CHANNEL || "sms").trim().toLowerCase();
+            const useWhatsapp = (mode === "whatsapp" || mode === "both") && sendSms.whatsappConfigured();
+
+            if (useWhatsapp) {
+                try {
+                    await sendSms.sendWhatsAppOtp(destination, code);
+                    if (mode === "whatsapp") return;
+                } catch (error) {
+                    console.warn("WhatsApp code could not be sent, using SMS instead:", error.message);
+                }
+            }
+
             await sendSms(destination, text);
         }
     }

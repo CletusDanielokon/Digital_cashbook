@@ -22,7 +22,7 @@ const paymentSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-// Money that someone owes the logged-in user
+// Money that is owed between the logged-in user and another person (either direction)
 const debtSchema = new mongoose.Schema(
     {
         user: {
@@ -30,6 +30,13 @@ const debtSchema = new mongoose.Schema(
             ref: "User",
             required: true,
             index: true
+        },
+
+        // owed_to_me = someone owes the user money, i_owe = the user owes someone
+        direction: {
+            type: String,
+            enum: ["owed_to_me", "i_owe"],
+            default: "owed_to_me"
         },
 
         personName: {
