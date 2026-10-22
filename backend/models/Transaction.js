@@ -38,6 +38,13 @@ const transactionSchema = new mongoose.Schema(
             type: String,
             required: true,
             enum: ["income", "expense"]
+        },
+
+        // Optional photo of the teller or receipt (see models/Attachment.js)
+        attachment: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Attachment",
+            default: null
         }
     },
     {

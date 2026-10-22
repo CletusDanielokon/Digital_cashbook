@@ -15,6 +15,7 @@ const budgetRoutes = require("./routes/budgetRoutes");
 const goalRoutes = require("./routes/goalRoutes");
 const debtRoutes = require("./routes/debtRoutes");
 const reportRoutes = require("./routes/reportRoutes");
+const attachmentRoutes = require("./routes/attachmentRoutes");
 
 const app = express();
 
@@ -36,7 +37,8 @@ app.use(cors({
     origin: allowedOrigins.length ? allowedOrigins : true,
     exposedHeaders: ["Content-Disposition"]
 }));
-app.use(express.json());
+// 1 MB: enough for a compressed photo of a teller or receipt (everything else is tiny)
+app.use(express.json({ limit: "1mb" }));
 
 // ---------- Rate limiting ----------
 function limiter(minutes, max, message) {
@@ -89,6 +91,12 @@ app.use(
     limiter(15, 30, "Too many downloads. Please wait a few minutes and try again.")
 );
 
+// Picture uploads (tellers and receipts): 60 per 15 minutes per visitor
+app.use(
+    "/api/attachments",
+    limiter(15, 60, "Too many uploads. Please wait a few minutes and try again.")
+);
+
 // ---------- Routes ----------
 app.use("/api/auth", authRoutes);
 app.use("/api/auth", otpRoutes);
@@ -100,6 +108,7 @@ app.use("/api/budget", budgetRoutes);
 app.use("/api/goals", goalRoutes);
 app.use("/api/debts", debtRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/attachments", attachmentRoutes);
 
 // Test route
 app.get("/", (req, res) => {

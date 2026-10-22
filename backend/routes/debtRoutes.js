@@ -1,6 +1,8 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const Debt = require("../models/Debt");
+const Transaction = require("../models/Transaction");
+const { ownedAttachmentId, removeAttachment, cloneAttachment } = require("../utils/attachments");
 const protect = require("../middleware/authMiddleware");
 
 const router = express.Router();
@@ -61,6 +63,12 @@ function validateDebt(body, existing) {
     return { direction, category, personName, phone, amount, note, dateLent, dueDate };
 }
 
+// Answers with the right status when a helper threw an HttpError, otherwise with the fallback
+function fail(res, error, fallbackMessage) {
+    if (error && error.status) return res.status(error.status).json({ message: error.message });
+    return res.status(500).json({ message: fallbackMessage });
+}
+
 // Stops a badly formed id from crashing the request
 function checkId(req, res, next) {
     if (!mongoose.isValidObjectId(req.params.id)) {
@@ -86,11 +94,13 @@ router.post("/", protect, async (req, res) => {
         const result = validateDebt(req.body);
         if (result.error) return res.status(400).json({ message: result.error });
 
-        const debt = await Debt.create({ user: req.userId, ...result });
+        const attachment = await ownedAttachmentId(req.userId, req.body.attachment);
+
+        const debt = await Debt.create({ user: req.userId, ...result, attachment: attachment || null });
         res.status(201).json({ message: "Debt saved successfully!", debt: present(debt) });
     } catch (error) {
         console.error("Create debt error:", error.message);
-        res.status(500).json({ message: "Server error while saving the debt." });
+        fail(res, error, "Server error while saving the debt.");
     }
 });
 
@@ -110,13 +120,22 @@ router.put("/:id", protect, checkId, async (req, res) => {
             });
         }
 
+        // Picture: not mentioned = keep, null = remove, an id = replace
+        const attachment = await ownedAttachmentId(req.userId, req.body.attachment);
+        const oldAttachment = debt.attachment ? String(debt.attachment) : null;
+
         debt.set(result);
+        if (attachment !== undefined) debt.attachment = attachment;
         await debt.save();
+
+        if (attachment !== undefined && oldAttachment && oldAttachment !== attachment) {
+            await removeAttachment(req.userId, oldAttachment);
+        }
 
         res.json({ message: "Debt updated successfully!", debt: present(debt) });
     } catch (error) {
         console.error("Update debt error:", error.message);
-        res.status(500).json({ message: "Unable to update the debt." });
+        fail(res, error, "Unable to update the debt.");
     }
 });
 
@@ -143,13 +162,54 @@ router.post("/:id/payments", protect, checkId, async (req, res) => {
             });
         }
 
-        debt.payments.push({ amount, date, note });
-        await debt.save();
+        const attachment = await ownedAttachmentId(req.userId, req.body.attachment);
+        const wantsTransaction = req.body.recordTransaction === true || req.body.recordTransaction === "true";
 
-        res.status(201).json({ message: "Payment recorded!", debt: present(debt) });
+        // The time shown on the transaction comes from the user's phone (the server clock is in another time zone)
+        const sentTime = String(req.body.time || "");
+        const time = /^([01]\d|2[0-3]):[0-5]\d$/.test(sentTime)
+            ? sentTime
+            : new Date().toISOString().slice(11, 16);
+
+        let transactionId = null;
+        let copiedAttachment = null;
+
+        // Only when the user said yes: record the payment in Transactions as well
+        if (wantsTransaction) {
+            const iOwe = debt.direction === "i_owe";
+            copiedAttachment = attachment ? await cloneAttachment(req.userId, attachment) : null;
+
+            const transaction = await Transaction.create({
+                user: req.userId,
+                description: (iOwe ? "Debt payment to " : "Debt payment from ") + debt.personName,
+                amount,
+                date,
+                time,
+                category: "Debt",
+                type: iOwe ? "expense" : "income",
+                attachment: copiedAttachment
+            });
+            transactionId = transaction._id;
+        }
+
+        try {
+            debt.payments.push({ amount, date, note, attachment: attachment || null, transaction: transactionId });
+            await debt.save();
+        } catch (saveError) {
+            // Do not leave a transaction behind for a payment that was not saved
+            if (transactionId) await Transaction.deleteOne({ _id: transactionId, user: req.userId });
+            if (copiedAttachment) await removeAttachment(req.userId, copiedAttachment);
+            throw saveError;
+        }
+
+        res.status(201).json({
+            message: "Payment recorded!",
+            recordedTransaction: Boolean(transactionId),
+            debt: present(debt)
+        });
     } catch (error) {
         console.error("Add payment error:", error.message);
-        res.status(500).json({ message: "Unable to record the payment." });
+        fail(res, error, "Unable to record the payment.");
     }
 });
 
@@ -162,10 +222,24 @@ router.delete("/:id/payments/:paymentId", protect, checkId, async (req, res) => 
         const payment = debt.payments.id(req.params.paymentId);
         if (!payment) return res.status(404).json({ message: "Payment not found." });
 
+        const linkedTransaction = payment.transaction;
+        const paymentPicture = payment.attachment;
+
         payment.deleteOne();
         await debt.save();
 
-        res.json({ message: "Payment removed.", debt: present(debt) });
+        // A payment that was recorded in Transactions automatically goes away from there too
+        let removedTransaction = false;
+        if (linkedTransaction) {
+            const gone = await Transaction.findOneAndDelete({ _id: linkedTransaction, user: req.userId });
+            if (gone) {
+                removedTransaction = true;
+                await removeAttachment(req.userId, gone.attachment);
+            }
+        }
+        await removeAttachment(req.userId, paymentPicture);
+
+        res.json({ message: "Payment removed.", removedTransaction, debt: present(debt) });
     } catch (error) {
         console.error("Delete payment error:", error.message);
         res.status(500).json({ message: "Unable to remove the payment." });
@@ -177,6 +251,11 @@ router.delete("/:id", protect, checkId, async (req, res) => {
     try {
         const debt = await Debt.findOneAndDelete({ _id: req.params.id, user: req.userId });
         if (!debt) return res.status(404).json({ message: "Debt not found." });
+
+        // The pictures go with the debt. Transactions that were recorded from its payments stay,
+        // because that money really moved.
+        await removeAttachment(req.userId, debt.attachment);
+        for (const payment of debt.payments) await removeAttachment(req.userId, payment.attachment);
 
         res.json({ message: "Debt deleted successfully!" });
     } catch (error) {

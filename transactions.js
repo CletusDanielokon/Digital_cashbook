@@ -654,6 +654,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
                             <div class="flex items-center gap-1">
 
+                                ${transaction.attachment ? `
+                                <button
+                                    type="button"
+                                    data-action="receipt"
+                                    data-id="${transaction.attachment}"
+                                    class="w-8 h-8 flex items-center justify-center rounded-lg text-green hover:bg-green/10 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-green/50"
+                                    aria-label="View the teller or receipt for ${description}"
+                                    title="View teller / receipt"
+                                >
+                                    <i class="fa-solid fa-paperclip text-xs"></i>
+                                </button>` : ""}
+
                                 <button
                                     type="button"
                                     data-action="edit"
@@ -704,6 +716,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const id =
             button.dataset.id;
+
+        if (button.dataset.action === "receipt") {
+
+            if (window.CashbookReceipt) window.CashbookReceipt.view(id);
+
+            return;
+
+        }
 
         if (button.dataset.action === "edit") {
 
@@ -820,12 +840,46 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("transactionTime");
 
 
+    // Teller / receipt: take a photo or upload one (optional), and scan it to fill the form
+    const receiptHolder = document.getElementById("receipt-widget");
+
+    const receiptWidget = (receiptHolder && window.CashbookReceipt)
+        ? window.CashbookReceipt.mount(receiptHolder, {
+            scan: true,
+            onScan: function (found) {
+                window.CashbookReceipt.fillTransactionForm(found, {
+                    amount: "amount",
+                    description: "description",
+                    date: "transactionDate",
+                    time: "transactionTime",
+                    category: "category"
+                });
+
+                // A scanned credit alert is income, a receipt is an expense (only when adding)
+                if (editingTransactionId === null && (found.type === "income" || found.type === "expense")) {
+                    transactionTypeInput.value = found.type;
+                    modalTitle.textContent = found.type === "income" ? "Add Income" : "Add Expense";
+                }
+            }
+        })
+        : null;
+
+    // A picture that was uploaded for a save that then failed is not kept
+    function dropPicture(picture) {
+        if (picture && picture.uploaded && window.CashbookReceipt) {
+            window.CashbookReceipt.discard(picture.value);
+        }
+    }
+
+
     // Add a new transaction
     function openModal(type) {
 
         editingTransactionId = null;
 
         transactionForm.reset();
+
+        if (receiptWidget) receiptWidget.reset();
 
         transactionTypeInput.value =
             type;
@@ -879,6 +933,8 @@ document.addEventListener("DOMContentLoaded", function () {
             transaction.id;
 
         transactionForm.reset();
+
+        if (receiptWidget) receiptWidget.setExisting(transaction.attachment || null);
 
         transactionTypeInput.value =
             transaction.type;
@@ -1156,6 +1212,20 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
 
+        // Save the teller / receipt picture first (only if one was chosen or changed)
+        let picture = { value: undefined };
+
+        if (receiptWidget) {
+            try {
+                picture = await receiptWidget.prepare();
+            } catch (error) {
+                alert(error.message || "Unable to save the picture.");
+                return;
+            }
+        }
+
+        const pictureField = picture.value !== undefined ? { attachment: picture.value } : {};
+
         // =========================================
         // ADD NEW TRANSACTION
         // =========================================
@@ -1176,7 +1246,8 @@ document.addEventListener("DOMContentLoaded", function () {
                             date: date,
                             time: time,
                             category: category,
-                            type: type
+                            type: type,
+                            ...pictureField
                         })
                     }
                 );
@@ -1184,6 +1255,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 const data = await response.json();
 
                 if (!response.ok) {
+                    dropPicture(picture);
                     alert(
                         data.message ||
                         "Unable to save transaction."
@@ -1207,6 +1279,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 alert("Transaction saved successfully!");
 
             } catch (error) {
+                dropPicture(picture);
                 console.error(
                     "Save transaction error:",
                     error
@@ -1236,7 +1309,8 @@ document.addEventListener("DOMContentLoaded", function () {
                         date: date,
                         time: time,
                         category: category,
-                        type: type
+                        type: type,
+                        ...pictureField
                     })
                 }
             );
@@ -1244,6 +1318,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const data = await response.json();
 
             if (!response.ok) {
+                dropPicture(picture);
                 alert(
                     data.message ||
                     "Unable to update transaction."
@@ -1276,6 +1351,7 @@ document.addEventListener("DOMContentLoaded", function () {
             alert("Transaction updated successfully!");
 
         } catch (error) {
+            dropPicture(picture);
             console.error(
                 "Update transaction error:",
                 error

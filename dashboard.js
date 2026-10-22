@@ -307,6 +307,130 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // =========================================
+    // 7c. HIDE / SHOW BALANCES
+    // =========================================
+    const toggleBalancesButton = document.getElementById("toggle-balances");
+
+    function applyHideBalances(hidden) {
+        document.body.classList.toggle("hide-money", hidden);
+        if (!toggleBalancesButton) return;
+        toggleBalancesButton.setAttribute("aria-pressed", hidden ? "true" : "false");
+        const icon = document.getElementById("toggle-balances-icon");
+        if (icon) icon.className = hidden ? "fa-regular fa-eye" : "fa-regular fa-eye-slash";
+        const label = document.getElementById("toggle-balances-text");
+        if (label) label.textContent = hidden ? "Show balances" : "Hide balances";
+    }
+
+    let balancesHidden = false;
+    try { balancesHidden = localStorage.getItem("cashbookHideBalances") === "1"; } catch (e) { /* ignore */ }
+    applyHideBalances(balancesHidden);
+
+    if (toggleBalancesButton) {
+        toggleBalancesButton.addEventListener("click", function () {
+            balancesHidden = !balancesHidden;
+            try { localStorage.setItem("cashbookHideBalances", balancesHidden ? "1" : "0"); } catch (e) { /* ignore */ }
+            applyHideBalances(balancesHidden);
+        });
+    }
+
+    // =========================================
+    // 7d. DEBTS CARD
+    // =========================================
+    const debtsOverview = document.getElementById("debts-overview");
+
+    function todayText() {
+        const d = new Date();
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    }
+
+    function daysUntil(dateText) {
+        const a = new Date(todayText() + "T00:00:00");
+        const b = new Date(dateText + "T00:00:00");
+        return Math.round((b - a) / 86400000);
+    }
+
+    async function loadDebtsOverview() {
+        if (!debtsOverview) return;
+
+        let debts;
+        try {
+            const token = localStorage.getItem("cashbookToken");
+            const response = await fetch("http://localhost:5000/api/debts", {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || "Unable to load debts.");
+            debts = data.debts || [];
+        } catch (error) {
+            console.error("Error loading debts overview:", error);
+            debtsOverview.innerHTML = '<p class="text-sm text-slate-500 dark:text-slate-400 sm:col-span-3">Could not load your debts.</p>';
+            return;
+        }
+
+        const open = debts.filter(function (d) { return d.remaining > 0; });
+
+        if (!open.length) {
+            debtsOverview.innerHTML =
+                '<div class="sm:col-span-3">' +
+                '<p class="text-sm font-medium text-slate-900 dark:text-slate-100">Nothing outstanding</p>' +
+                '<p class="text-sm text-slate-500 dark:text-slate-400">Record money people owe you, or money you owe, on the Debts page.</p></div>';
+            return;
+        }
+
+        let toMe = 0, toThem = 0, countToMe = 0, countToThem = 0, overdue = 0;
+        let soonest = null;
+
+        open.forEach(function (d) {
+            const iOwe = d.direction === "i_owe";
+            if (iOwe) { toThem += d.remaining; countToThem++; }
+            else { toMe += d.remaining; countToMe++; }
+
+            if (d.dueDate) {
+                const days = daysUntil(d.dueDate);
+                if (days < 0) overdue++;
+                else if (days <= 7 && (!soonest || days < soonest.days)) {
+                    soonest = { days: days, name: d.personName, iOwe: iOwe };
+                }
+            }
+        });
+
+        const box = function (label, amount, count, color) {
+            return '<div class="rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700/70 p-4 min-w-0">' +
+                '<p class="text-sm text-slate-500 dark:text-slate-400">' + label + '</p>' +
+                '<p class="mt-1 text-xl font-semibold truncate ' + color + '">' + formatNaira(amount) + '</p>' +
+                '<p class="mt-1 text-xs text-slate-500 dark:text-slate-400">' + (count === 0 ? "No one" : count + (count === 1 ? " person" : " people")) + '</p></div>';
+        };
+
+        let notice;
+        if (overdue > 0) {
+            notice = '<p class="text-sm font-medium text-red-500"><i class="fa-solid fa-clock mr-1"></i>' +
+                overdue + (overdue === 1 ? " debt is" : " debts are") + " past its due date.</p>" +
+                '<p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Open Debts to see which ones.</p>';
+        } else if (soonest) {
+            const when = soonest.days === 0 ? "today" : "in " + soonest.days + (soonest.days === 1 ? " day" : " days");
+            notice = '<p class="text-sm font-medium text-amber-600 dark:text-amber-400"><i class="fa-regular fa-calendar mr-1"></i>' +
+                (soonest.iOwe ? "You pay " : "") + escapeHTML(soonest.name) + (soonest.iOwe ? "" : " is due") + " " + when + ".</p>" +
+                '<p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Due within the next 7 days.</p>';
+        } else {
+            notice = '<p class="text-sm font-medium text-green"><i class="fa-solid fa-circle-check mr-1"></i>Nothing is late.</p>' +
+                '<p class="mt-1 text-xs text-slate-500 dark:text-slate-400">No payments due in the next 7 days.</p>';
+        }
+
+        debtsOverview.innerHTML =
+            box("Owed to you", toMe, countToMe, "text-green") +
+            box("You owe", toThem, countToThem, "text-red-500") +
+            '<div class="rounded-lg border border-dashed border-slate-300 dark:border-slate-600 p-4 flex flex-col justify-center min-w-0">' + notice + "</div>";
+    }
+
+    // Paperclip on a recent transaction opens its teller / receipt
+    if (recentTransactionsElement) {
+        recentTransactionsElement.addEventListener("click", function (event) {
+            const button = event.target.closest("[data-receipt]");
+            if (button && window.CashbookReceipt) window.CashbookReceipt.view(button.dataset.receipt);
+        });
+    }
+
+    // =========================================
     // 8. DISPLAY RECENT TRANSACTIONS
     // =========================================
     async function displayRecentTransactions() {
@@ -432,9 +556,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
                             </div>
 
-                            <p class="font-semibold ${amountClass}">
-                                ${sign}${formatNaira(transaction.amount)}
-                            </p>
+                            <div class="flex items-center gap-2 shrink-0">
+                                ${transaction.attachment ? `
+                                <button type="button" data-receipt="${escapeHTML(transaction.attachment)}" class="w-8 h-8 flex items-center justify-center rounded-lg text-green hover:bg-green/10 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-green/50" aria-label="View the teller or receipt" title="View teller / receipt">
+                                    <i class="fa-solid fa-paperclip text-xs"></i>
+                                </button>` : ""}
+                                <p class="font-semibold ${amountClass}">
+                                    ${sign}${formatNaira(transaction.amount)}
+                                </p>
+                            </div>
 
                         </div>
                     `;
@@ -474,6 +604,7 @@ document.addEventListener("DOMContentLoaded", function () {
         { id: "budget-link", target: "budget.html" },
         { id: "debts-link", target: "debts.html" },
         { id: "view-budget", target: "budget.html" },
+        { id: "view-debts", target: "debts.html" },
         { id: "reports-link", target: "reports.html" },
         { id: "profile-link", target: "profile.html" },
         { id: "settings-link", target: "settings.html" }
@@ -536,8 +667,41 @@ document.addEventListener("DOMContentLoaded", function () {
         if (transactionTimeInput) transactionTimeInput.value = currentTime;
     }
 
+    // Teller / receipt: take a photo or upload one (optional), and scan it to fill the form
+    const receiptHolder = document.getElementById("receipt-widget");
+
+    const receiptWidget = (receiptHolder && window.CashbookReceipt)
+        ? window.CashbookReceipt.mount(receiptHolder, {
+            scan: true,
+            onScan: function (found) {
+                window.CashbookReceipt.fillTransactionForm(found, {
+                    amount: "amount",
+                    description: "description",
+                    date: "transactionDate",
+                    time: "transactionTime",
+                    category: "category"
+                });
+
+                // A scanned credit alert is income, a receipt is an expense
+                if (found.type === "income" || found.type === "expense") {
+                    if (transactionTypeInput) transactionTypeInput.value = found.type;
+                    if (modalTitle) modalTitle.textContent = found.type === "income" ? "Add Income" : "Add Expense";
+                }
+            }
+        })
+        : null;
+
+    // A picture that was uploaded for a save that then failed is not kept
+    function dropPicture(picture) {
+        if (picture && picture.uploaded && window.CashbookReceipt) {
+            window.CashbookReceipt.discard(picture.value);
+        }
+    }
+
     function openModal(type) {
         if (!modal) return;
+
+        if (receiptWidget) receiptWidget.reset();
 
         if (transactionTypeInput) transactionTypeInput.value = type;
 
@@ -621,6 +785,18 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
+            // Save the teller / receipt picture first (only if one was chosen)
+            let picture = { value: undefined };
+
+            if (receiptWidget) {
+                try {
+                    picture = await receiptWidget.prepare();
+                } catch (error) {
+                    alert(error.message || "Unable to save the picture.");
+                    return;
+                }
+            }
+
             try {
                 const response = await fetch(
                     "http://localhost:5000/api/transactions",
@@ -636,7 +812,8 @@ document.addEventListener("DOMContentLoaded", function () {
                             date: date,
                             time: time,
                             category: category,
-                            type: type
+                            type: type,
+                            ...(picture.value !== undefined ? { attachment: picture.value } : {})
                         })
                     }
                 );
@@ -644,6 +821,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 const data = await response.json();
 
                 if (!response.ok) {
+                    dropPicture(picture);
                     alert(
                         data.message ||
                         "Unable to save transaction."
@@ -660,6 +838,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 alert("Transaction saved successfully!");
 
             } catch (error) {
+                dropPicture(picture);
                 console.error(
                     "Dashboard transaction error:",
                     error
@@ -677,4 +856,5 @@ document.addEventListener("DOMContentLoaded", function () {
     // =========================================
     calculateFinances();
     displayRecentTransactions();
+    loadDebtsOverview();
 });

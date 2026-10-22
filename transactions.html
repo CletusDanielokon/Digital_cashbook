@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+    <script src="lock.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
@@ -143,6 +144,7 @@
 
     <!-- Page JavaScript -->
     <script src="alertparser.js" defer></script>
+    <script src="receipt.js" defer></script>
     <script src="transactions.js" defer></script>
     <script src="calculator.js" defer></script>
     <script src="avatar.js" defer></script>
@@ -152,6 +154,11 @@
         #sidebar nav::-webkit-scrollbar { display: none; }
     </style>
     <script src="tour.js" defer></script>
+    <!-- Installable app (Add to Home screen) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#22c55e">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <script src="pwa.js" defer></script>
 </head>
 
 
@@ -410,6 +417,7 @@
                                 <option value="Business">Business</option>
                                 <option value="Entertainment">Entertainment</option>
                                 <option value="Utilities">Utilities</option>
+                                <option value="Debt">Debt</option>
                                 <option value="Other">Other</option>
                             </select>
                         </div>
@@ -569,9 +577,13 @@
                     <option value="Business">Business</option>
                     <option value="Entertainment">Entertainment</option>
                     <option value="Utilities">Utilities</option>
+                    <option value="Debt">Debt</option>
                     <option value="Other">Other</option>
                 </select>
             </div>
+
+            <!-- Teller or receipt: take a photo or upload one, and optionally scan it to fill this form -->
+            <div id="receipt-widget"></div>
 
             <!-- Buttons -->
             <div class="flex gap-3 pt-2">

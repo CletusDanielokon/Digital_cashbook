@@ -73,4 +73,66 @@ function build(transactions, from, to) {
     };
 }
 
-module.exports = { build, isRealDate, prettyDate, periodLabel };
+const CATEGORY_NAMES = {
+    loan: "Loan", service: "Service", goods: "Goods",
+    bill: "Bill", rent: "Rent", other: "Other"
+};
+
+// Today's date in Nigerian time (YYYY-MM-DD), so "overdue" does not flip at the wrong hour
+function todayInLagos() {
+    return new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" });
+}
+
+// Turns the user's debts into the numbers and rows the report shows. It is a picture of
+// where things stand today, not limited to the report's date range.
+function buildDebts(debts) {
+    const today = todayInLagos();
+
+    const make = () => ({ count: 0, outstanding: 0, total: 0, paid: 0 });
+    const owedToMe = make();
+    const iOwe = make();
+    let overdueCount = 0;
+
+    const rows = (debts || []).map((d) => {
+        const amount = toKobo(d.amount);
+        const paid = (d.payments || []).reduce((sum, p) => sum + toKobo(p.amount), 0);
+        const remaining = Math.max(0, amount - paid);
+        const direction = d.direction === "i_owe" ? "i_owe" : "owed_to_me";
+
+        let status = "Open";
+        if (remaining <= 0) status = "Paid";
+        else if (d.dueDate && d.dueDate < today) status = "Overdue";
+
+        const group = direction === "i_owe" ? iOwe : owedToMe;
+        group.total += amount;
+        group.paid += Math.min(paid, amount);
+        if (remaining > 0) {
+            group.count += 1;
+            group.outstanding += remaining;
+        }
+        if (status === "Overdue") overdueCount += 1;
+
+        return {
+            person: d.personName || "",
+            direction,
+            category: CATEGORY_NAMES[d.category] || "",
+            date: d.dateLent || "",
+            dueDate: d.dueDate || "",
+            amount: amount / 100,
+            paid: Math.min(paid, amount) / 100,
+            remaining: remaining / 100,
+            status,
+            note: d.note || ""
+        };
+    });
+
+    // Unpaid first (overdue before open), then paid; earliest due date first inside each group
+    const rank = { Overdue: 0, Open: 1, Paid: 2 };
+    rows.sort((a, b) => rank[a.status] - rank[b.status] || (a.dueDate || "9999").localeCompare(b.dueDate || "9999"));
+
+    const fin = (g) => ({ count: g.count, outstanding: g.outstanding / 100, total: g.total / 100, paid: g.paid / 100 });
+
+    return { asOf: today, owedToMe: fin(owedToMe), iOwe: fin(iOwe), overdueCount, rows };
+}
+
+module.exports = { build, buildDebts, isRealDate, prettyDate, periodLabel };

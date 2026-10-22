@@ -166,6 +166,92 @@ function writePdf({ user, report }, stream) {
                 .text(naira(report.balance), left + 256, y + 10, { width: width - 261, align: "right", lineBreak: false });
         }
 
+        // ---------- debts ----------
+        const debts = report.debts;
+
+        if (debts) {
+            y += report.rows.length === 0 ? 30 : 44;
+            ensureSpace(120);
+            doc.fillColor(NAVY).font("bold").fontSize(13).text("Debts", left, y);
+            doc.fillColor(GREY).font("body").fontSize(9)
+                .text("As of " + prettyDate(debts.asOf) + " (not limited to the dates above)", left, y + 3, { width, align: "right" });
+            y += 24;
+
+            const dCards = [
+                ["Owed to you (unpaid)", naira(debts.owedToMe.outstanding), GREEN],
+                ["You owe (unpaid)", naira(debts.iOwe.outstanding), debts.iOwe.outstanding > 0 ? RED : NAVY],
+                ["Overdue debts", String(debts.overdueCount), debts.overdueCount > 0 ? RED : NAVY]
+            ];
+            dCards.forEach(([label, value, color], i) => {
+                const x = left + i * (cardW + gap);
+                doc.roundedRect(x, y, cardW, 50, 6).fill(LIGHT);
+                doc.fillColor(GREY).font("body").fontSize(9).text(label, x + 12, y + 9, { width: cardW - 24 });
+                doc.fillColor(color).font("bold").fontSize(13).text(value, x + 12, y + 25, { width: cardW - 24, lineBreak: false });
+            });
+            y += 66;
+
+            const dCols = [
+                { key: "person", title: "Person", x: left, w: 96 },
+                { key: "category", title: "For", x: left + 96, w: 64 },
+                { key: "dueDate", title: "Due", x: left + 160, w: 72 },
+                { key: "amount", title: "Amount", x: left + 232, w: 75, align: "right" },
+                { key: "paid", title: "Paid", x: left + 307, w: 75, align: "right" },
+                { key: "remaining", title: "Left", x: left + 382, w: 75, align: "right" },
+                { key: "status", title: "Status", x: left + 457, w: width - 457 }
+            ];
+
+            function debtHeader() {
+                doc.rect(left, y, width, 20).fill(NAVY);
+                dCols.forEach((c) => {
+                    doc.fillColor("#ffffff").font("bold").fontSize(9)
+                        .text(c.title, c.x + 5, y + 6, { width: c.w - 10, align: c.align || "left", lineBreak: false });
+                });
+                y += 20;
+            }
+
+            [["owed_to_me", "Owed to you"], ["i_owe", "You owe"]].forEach(([direction, title]) => {
+                const group = debts.rows.filter((r) => r.direction === direction);
+
+                ensureSpace(70);
+                doc.fillColor(NAVY).font("bold").fontSize(11).text(title, left, y);
+                y += 18;
+
+                if (group.length === 0) {
+                    doc.fillColor(GREY).font("body").fontSize(10).text("Nothing recorded.", left, y);
+                    y += 26;
+                    return;
+                }
+
+                debtHeader();
+
+                group.forEach((r, i) => {
+                    if (ensureSpace(22)) debtHeader();
+                    if (i % 2 === 1) doc.rect(left, y, width, 20).fill("#f8fafc");
+
+                    const cells = {
+                        person: r.person,
+                        category: r.category,
+                        dueDate: r.dueDate ? prettyDate(r.dueDate) : "-",
+                        amount: naira(r.amount),
+                        paid: naira(r.paid),
+                        remaining: naira(r.remaining),
+                        status: r.status
+                    };
+
+                    dCols.forEach((c) => {
+                        let color = NAVY;
+                        if (c.key === "status") color = r.status === "Overdue" ? RED : r.status === "Paid" ? GREEN : NAVY;
+                        doc.fillColor(color).font(c.key === "status" || c.key === "remaining" ? "bold" : "body").fontSize(9);
+                        doc.text(fit(doc, cells[c.key], c.w - 10), c.x + 5, y + 6, { width: c.w - 10, align: c.align || "left", lineBreak: false });
+                    });
+
+                    y += 20;
+                });
+
+                y += 16;
+            });
+        }
+
         // ---------- footer on every page ----------
         const range = doc.bufferedPageRange();
 

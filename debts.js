@@ -55,6 +55,32 @@ document.addEventListener("DOMContentLoaded", function () {
     const paymentForm = document.getElementById("payment-form");
     const paymentFormError = document.getElementById("payment-form-error");
 
+    // Teller / receipt pictures (optional) for a debt and for a payment
+    const debtReceipt = window.CashbookReceipt && document.getElementById("debt-receipt")
+        ? window.CashbookReceipt.mount(document.getElementById("debt-receipt"), { label: "Teller or receipt for this debt" })
+        : null;
+
+    const paymentReceipt = window.CashbookReceipt && document.getElementById("payment-receipt")
+        ? window.CashbookReceipt.mount(document.getElementById("payment-receipt"), {
+            scan: true,
+            label: "Teller for this payment",
+            onScan: function (found) {
+                // A scanned teller can fill the amount, date and note of the payment
+                const amountInput = document.getElementById("payment-amount");
+                const debt = debts.find(function (d) { return d._id === payingId; });
+                if (found.amount > 0 && debt && found.amount <= debt.remaining + 0.001) amountInput.value = found.amount;
+                if (found.date) document.getElementById("payment-date").value = found.date;
+                const noteInput = document.getElementById("payment-note");
+                if (found.description && !noteInput.value.trim()) noteInput.value = found.description.slice(0, 300);
+            }
+        })
+        : null;
+
+    // A picture that was uploaded for a save that then failed is not kept
+    function dropPicture(picture) {
+        if (picture && picture.uploaded && window.CashbookReceipt) window.CashbookReceipt.discard(picture.value);
+    }
+
     let debts = [];
     let view = "owed_to_me";   // which tab is showing: "owed_to_me" or "i_owe"
     try {
@@ -352,10 +378,16 @@ document.addEventListener("DOMContentLoaded", function () {
                 '<div class="min-w-0">' +
                 '<p class="text-sm font-medium text-slate-800 dark:text-slate-100">' + formatNaira(p.amount) + "</p>" +
                 '<p class="text-xs text-slate-500 dark:text-slate-400 break-words">' + escapeHTML(formatDay(p.date)) +
-                (p.note ? " · " + escapeHTML(p.note) : "") + "</p></div>" +
+                (p.note ? " · " + escapeHTML(p.note) : "") + "</p>" +
+                (p.transaction ? '<p class="text-xs text-green mt-0.5"><i class="fa-solid fa-link mr-1"></i>Recorded in Transactions</p>' : "") + "</div>" +
+                '<div class="flex items-center gap-1 shrink-0">' +
+                (p.attachment
+                    ? '<button type="button" data-action="view-receipt" data-id="' + escapeHTML(debt._id) + '" data-attachment="' + escapeHTML(p.attachment) + '" ' +
+                      'class="w-8 h-8 rounded-lg text-green hover:bg-green/10 transition" aria-label="View the teller or receipt" title="View teller / receipt"><i class="fa-solid fa-paperclip text-xs"></i></button>'
+                    : "") +
                 '<button type="button" data-action="delete-payment" data-id="' + escapeHTML(debt._id) + '" data-payment="' + escapeHTML(p._id) + '" ' +
-                'class="shrink-0 w-8 h-8 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition" aria-label="Remove this payment">' +
-                '<i class="fa-solid fa-trash-can text-xs"></i></button></li>';
+                'class="w-8 h-8 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition" aria-label="Remove this payment">' +
+                '<i class="fa-solid fa-trash-can text-xs"></i></button></div></li>';
         }).join("");
 
         return '<details class="mt-4 group" data-details="' + escapeHTML(debt._id) + '"' + open + ">" +
@@ -425,6 +457,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     : "") +
                 (canRemind
                     ? '<button type="button" data-action="remind" data-id="' + id + '" class="btn-outline h-9 px-3"><i class="fa-brands fa-whatsapp"></i> Remind</button>'
+                    : "") +
+                (debt.attachment
+                    ? '<button type="button" data-action="view-receipt" data-id="' + id + '" data-attachment="' + escapeHTML(debt.attachment) + '" class="btn-outline h-9 px-3"><i class="fa-solid fa-paperclip text-xs"></i> Teller</button>'
                     : "") +
                 '<button type="button" data-action="edit" data-id="' + id + '" class="btn-outline h-9 px-3"><i class="fa-solid fa-pen text-xs"></i> Edit</button>' +
                 '<button type="button" data-action="delete" data-id="' + id + '" class="btn-outline h-9 px-3 hover:!bg-red-500/10 hover:!text-red-500 hover:!border-red-500/40"><i class="fa-solid fa-trash-can text-xs"></i> Delete</button>' +
@@ -504,6 +539,11 @@ document.addEventListener("DOMContentLoaded", function () {
         document.getElementById("debt-note").value = debt ? debt.note : "";
         document.getElementById("debt-category").value = debt ? (debt.category || "") : "";
 
+        if (debtReceipt) {
+            if (debt) debtReceipt.setExisting(debt.attachment || null);
+            else debtReceipt.reset();
+        }
+
         debtModal.showModal();
         document.getElementById("debt-person").focus();
     }
@@ -536,6 +576,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
         saveDebtButton.disabled = true;
 
+        // Save the picture first (only if one was chosen or changed)
+        let picture = { value: undefined };
+        if (debtReceipt) {
+            try {
+                picture = await debtReceipt.prepare();
+            } catch (error) {
+                saveDebtButton.disabled = false;
+                return showFormError(debtFormError, error.message || "Unable to save the picture.");
+            }
+        }
+        if (picture.value !== undefined) body.attachment = picture.value;
+
         try {
             const data = editingId
                 ? await api("PUT", "/" + editingId, body)
@@ -551,6 +603,7 @@ document.addEventListener("DOMContentLoaded", function () {
             render();
             showToast(editingId ? "Debt updated." : "Debt saved.");
         } catch (error) {
+            dropPicture(picture);
             showFormError(debtFormError, error.message);
         } finally {
             saveDebtButton.disabled = false;
@@ -575,6 +628,7 @@ document.addEventListener("DOMContentLoaded", function () {
         amountInput.max = debt.remaining;
         document.getElementById("payment-date").value = todayText();
         document.getElementById("payment-note").value = "";
+        if (paymentReceipt) paymentReceipt.reset();
 
         paymentModal.showModal();
         amountInput.focus();
@@ -584,6 +638,49 @@ document.addEventListener("DOMContentLoaded", function () {
         const debt = debts.find(function (d) { return d._id === payingId; });
         if (debt) document.getElementById("payment-amount").value = debt.remaining;
     });
+
+    // Asks whether the payment should also be added to Transactions.
+    // Answers true (yes), false (no) or null (the user went back).
+    function askRecordTransaction(debt, body) {
+        const dialog = document.getElementById("record-modal");
+        const iOwe = directionOf(debt) === "i_owe";
+
+        setText("record-text", iOwe
+            ? "Add " + formatNaira(body.amount) + " paid to " + debt.personName + " to your Transactions as an expense? It will be filed under the category Debt, dated " + formatDay(body.date) + "."
+            : "Add " + formatNaira(body.amount) + " received from " + debt.personName + " to your Transactions as income? It will be filed under the category Debt, dated " + formatDay(body.date) + ".");
+
+        return new Promise(function (resolve) {
+            let answer = null;
+
+            function finish(value) {
+                answer = value;
+                dialog.close();
+            }
+
+            const yes = document.getElementById("record-yes");
+            const no = document.getElementById("record-no");
+            const back = document.getElementById("record-back");
+
+            function onYes() { finish(true); }
+            function onNo() { finish(false); }
+            function onBack() { finish(null); }
+            function onClose() {
+                yes.removeEventListener("click", onYes);
+                no.removeEventListener("click", onNo);
+                back.removeEventListener("click", onBack);
+                dialog.removeEventListener("close", onClose);
+                resolve(answer);          // Esc closes the dialog too, which counts as "go back"
+            }
+
+            yes.addEventListener("click", onYes);
+            no.addEventListener("click", onNo);
+            back.addEventListener("click", onBack);
+            dialog.addEventListener("close", onClose);
+
+            dialog.showModal();
+            yes.focus();
+        });
+    }
 
     paymentForm.addEventListener("submit", async function (event) {
         event.preventDefault();
@@ -604,13 +701,37 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         if (!body.date) return showFormError(paymentFormError, "Please choose the date of the payment.");
 
+        // The user decides whether this also goes into Transactions
+        const record = await askRecordTransaction(debt, body);
+        if (record === null) return;               // went back: nothing is saved
+
+        body.recordTransaction = record;
+        const now = new Date();
+        body.time = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+
+        // Save the picture first (only if one was chosen)
+        let picture = { value: undefined };
+        if (paymentReceipt) {
+            try {
+                picture = await paymentReceipt.prepare();
+            } catch (error) {
+                return showFormError(paymentFormError, error.message || "Unable to save the picture.");
+            }
+        }
+        if (picture.value !== undefined) body.attachment = picture.value;
+
         try {
             const data = await api("POST", "/" + payingId + "/payments", body);
             debts = debts.map(function (d) { return d._id === payingId ? data.debt : d; });
             paymentModal.close();
             render();
-            showToast(data.debt.remaining <= 0 ? (directionOf(data.debt) === "i_owe" ? "Fully paid off. 🎉" : "Fully paid back. 🎉") : "Payment recorded.");
+
+            const done = data.debt.remaining <= 0;
+            const owes = directionOf(data.debt) === "i_owe";
+            showToast((done ? (owes ? "Fully paid off. 🎉" : "Fully paid back. 🎉") : "Payment recorded.") +
+                (data.recordedTransaction ? " Added to your Transactions." : ""));
         } catch (error) {
+            dropPicture(picture);
             showFormError(paymentFormError, error.message);
         }
     });
@@ -627,6 +748,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const debt = debts.find(function (d) { return d._id === button.dataset.id; });
         if (!debt) return;
+
+        if (action === "view-receipt") {
+            if (window.CashbookReceipt) window.CashbookReceipt.view(button.dataset.attachment);
+            return;
+        }
 
         if (action === "pay") return openPaymentForm(debt);
         if (action === "edit") return openDebtForm(debt);
@@ -661,13 +787,16 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         if (action === "delete-payment") {
-            if (!confirm("Remove this payment? The balance will go back up.")) return;
+            const payment = debt.payments.find(function (p) { return p._id === button.dataset.payment; });
+            const linked = payment && payment.transaction;
+            if (!confirm("Remove this payment? The balance will go back up." +
+                (linked ? " The transaction that was recorded for it will be removed too." : ""))) return;
             try {
                 const data = await api("DELETE", "/" + debt._id + "/payments/" + button.dataset.payment);
                 debts = debts.map(function (d) { return d._id === debt._id ? data.debt : d; });
                 openDetails.add(debt._id);
                 render();
-                showToast("Payment removed.");
+                showToast(data.removedTransaction ? "Payment and its transaction removed." : "Payment removed.");
             } catch (error) {
                 showToast(error.message, true);
             }

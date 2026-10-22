@@ -26,13 +26,13 @@
             tab: "Dashboard",
             icon: "fa-house",
             title: "Dashboard",
-            text: "Your money at a glance: income, expenses, your balance, your budget progress and quick buttons to add a transaction."
+            text: "Your money at a glance: income, expenses, balance, budget progress and debts. Use \"Hide balances\" to blur the amounts when others are watching."
         },
         {
             tab: "Transactions",
             icon: "fa-arrow-right-arrow-left",
             title: "Transactions",
-            text: "Record every naira that comes in or goes out. Search and filter your history, or paste a bank alert and CashBook fills in the details for you."
+            text: "Record every naira that comes in or goes out. Search and filter your history, paste a bank alert, or scan a receipt or teller with your camera and CashBook fills in the details for you."
         },
         {
             tab: "Budget & Goals",
@@ -62,7 +62,7 @@
             tab: "Settings",
             icon: "fa-gear",
             title: "Settings",
-            text: "Switch dark mode, edit your details, change your password, verify your email or phone, and manage your data."
+            text: "Switch dark mode, edit your details, change your password, set an app-lock PIN, verify your email or phone, and manage your data."
         },
         {
             icon: "fa-circle-check",

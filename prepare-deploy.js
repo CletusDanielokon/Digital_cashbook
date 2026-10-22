@@ -38,7 +38,7 @@ const SKIP_FILES = new Set([
 ]);
 const KEEP_EXT = new Set([
     ".html", ".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg",
-    ".ico", ".webp", ".woff", ".woff2", ".ttf"
+    ".ico", ".webp", ".woff", ".woff2", ".ttf", ".json"
 ]);
 
 fs.rmSync(out, { recursive: true, force: true });

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>CashBook - Offline</title>
+    <style>
+        :root { color-scheme: light dark; }
+        body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box;
+               font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; background: #f8fafc; color: #0f172a; text-align: center; }
+        .box { max-width: 380px; }
+        .logo { width: 64px; height: 64px; margin: 0 auto 20px; }
+        h1 { font-size: 22px; margin: 0 0 8px; }
+        p { margin: 0 0 24px; color: #475569; line-height: 1.55; }
+        button { font: inherit; font-weight: 600; height: 44px; padding: 0 22px; border: 0; border-radius: 10px; background: #22c55e; color: #fff; cursor: pointer; }
+        button:hover { background: #16a34a; }
+        @media (prefers-color-scheme: dark) {
+            body { background: #0f172a; color: #f1f5f9; }
+            p { color: #94a3b8; }
+        }
+    </style>
+</head>
+<body>
+    <main class="box">
+        <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#22c55e"/><path d="M16 22a6 6 0 0 1 6-6h24a4 4 0 0 1 4 4v4H22a2 2 0 0 0 0 4h28a2 2 0 0 1 2 2v14a6 6 0 0 1-6 6H22a6 6 0 0 1-6-6V22z" fill="#fff"/><circle cx="44" cy="38" r="3" fill="#22c55e"/></svg>
+        <h1>You are offline</h1>
+        <p>CashBook needs an internet connection to load your money records. Check your data or Wi-Fi, then try again.</p>
+        <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+</body>
+</html>

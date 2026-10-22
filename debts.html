@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+    <script src="lock.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
@@ -131,6 +132,7 @@
     </style>
 
     <!-- Page JavaScript -->
+    <script src="receipt.js" defer></script>
     <script src="debts.js" defer></script>
     <script src="avatar.js" defer></script>
     <!-- Sidebar: still scrollable, but the scrollbar is not shown -->
@@ -139,6 +141,11 @@
         #sidebar nav::-webkit-scrollbar { display: none; }
     </style>
     <script src="tour.js" defer></script>
+    <!-- Installable app (Add to Home screen) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#22c55e">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <script src="pwa.js" defer></script>
 </head>
 
 
@@ -435,6 +442,9 @@
                 <textarea id="debt-note" rows="2" maxlength="1000" placeholder="Details, agreement or anything worth remembering..." class="field h-auto py-2.5 resize-none"></textarea>
             </div>
 
+            <!-- Teller or receipt for the debt itself (optional) -->
+            <div id="debt-receipt"></div>
+
             <p id="debt-form-error" class="hidden text-sm text-red-500" role="alert"></p>
 
             <div class="flex gap-3 pt-1">
@@ -447,6 +457,27 @@
         </form>
     </dialog>
 
+
+
+    <!-- ========================= -->
+    <!-- ASK: ALSO RECORD IN TRANSACTIONS? -->
+    <!-- ========================= -->
+    <dialog id="record-modal" class="cb-dialog rounded-xl p-0 w-11/12 max-w-sm shadow-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100">
+        <div class="p-5 space-y-4">
+            <div class="flex items-start gap-3">
+                <div class="w-10 h-10 shrink-0 rounded-lg bg-green/10 text-green flex items-center justify-center"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
+                <div class="min-w-0">
+                    <h2 class="text-base font-semibold">Also record this in your Transactions?</h2>
+                    <p id="record-text" class="mt-1 text-sm text-slate-500 dark:text-slate-400"></p>
+                </div>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button id="record-no" type="button" class="btn-outline flex-1">No, only update the debt</button>
+                <button id="record-yes" type="button" class="btn-primary flex-1"><i class="fa-solid fa-check text-xs"></i> Yes, record it</button>
+            </div>
+            <button id="record-back" type="button" class="block mx-auto text-sm text-slate-500 dark:text-slate-400 underline">Go back</button>
+        </div>
+    </dialog>
 
     <!-- ========================= -->
     <!-- RECORD PAYMENT -->
@@ -483,6 +514,9 @@
                 <label for="payment-note" class="field-label">Note <span class="font-normal text-slate-400">(optional)</span></label>
                 <input type="text" id="payment-note" maxlength="300" placeholder="e.g. Bank transfer, cash" class="field" autocomplete="off">
             </div>
+
+            <!-- Teller or receipt for this payment (optional). Scanning it can fill the amount and date. -->
+            <div id="payment-receipt"></div>
 
             <p id="payment-form-error" class="hidden text-sm text-red-500" role="alert"></p>
 

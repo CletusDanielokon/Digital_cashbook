@@ -681,9 +681,108 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
     // =================================
+    // DEBTS SECTION
+    // =================================
+
+    const debtsReport = document.getElementById("debts-report");
+    const DEBT_FOR = { loan: "Loan", service: "Service", goods: "Goods / items", bill: "Bill", rent: "Rent", other: "Other" };
+
+    function escapeText(value) {
+        return String(value === undefined || value === null ? "" : value)
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    function todayText() {
+        const d = new Date();
+        return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    }
+
+    function debtStatus(debt) {
+        if (debt.remaining <= 0) return "Paid";
+        if (debt.dueDate && debt.dueDate < todayText()) return "Overdue";
+        return "Open";
+    }
+
+    async function loadDebtsReport() {
+        if (!debtsReport) return;
+
+        let debts;
+        try {
+            const token = localStorage.getItem("cashbookToken");
+            const response = await fetch("http://localhost:5000/api/debts", {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || "Unable to load debts.");
+            debts = data.debts || [];
+        } catch (error) {
+            console.error("Error loading debts report:", error);
+            debtsReport.innerHTML = '<p class="text-sm text-slate-500 dark:text-slate-400">Could not load your debts.</p>';
+            return;
+        }
+
+        if (!debts.length) {
+            debtsReport.innerHTML = '<p class="text-sm text-slate-500 dark:text-slate-400">No debts recorded yet. Add them on the Debts page.</p>';
+            return;
+        }
+
+        let toMe = 0, toThem = 0, overdue = 0;
+        debts.forEach(function (d) {
+            if (d.remaining > 0) {
+                if (d.direction === "i_owe") toThem += d.remaining; else toMe += d.remaining;
+                if (debtStatus(d) === "Overdue") overdue++;
+            }
+        });
+
+        const rank = { Overdue: 0, Open: 1, Paid: 2 };
+        const rows = debts.slice().sort(function (a, b) {
+            const ra = rank[debtStatus(a)], rb = rank[debtStatus(b)];
+            if (ra !== rb) return ra - rb;
+            return (a.dueDate || "9999").localeCompare(b.dueDate || "9999");
+        });
+
+        const box = function (label, value, color) {
+            return '<div class="rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700/70 p-4 min-w-0">' +
+                '<p class="text-sm text-slate-500 dark:text-slate-400">' + label + "</p>" +
+                '<p class="mt-1 text-xl font-semibold truncate ' + color + '">' + value + "</p></div>";
+        };
+
+        const statusColor = { Overdue: "text-red-500", Paid: "text-green", Open: "text-slate-700 dark:text-slate-300" };
+
+        debtsReport.innerHTML =
+            '<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">' +
+                box("Owed to you (unpaid)", formatNaira(toMe), "text-green") +
+                box("You owe (unpaid)", formatNaira(toThem), toThem > 0 ? "text-red-500" : "text-slate-900 dark:text-white") +
+                box("Overdue debts", String(overdue), overdue > 0 ? "text-red-500" : "text-slate-900 dark:text-white") +
+            "</div>" +
+            '<div class="overflow-x-auto -mx-5 px-5">' +
+            '<table class="w-full text-sm min-w-[640px]">' +
+                '<thead><tr class="text-left text-xs text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700/70">' +
+                    '<th class="py-2 pr-3 font-medium">Person</th><th class="py-2 pr-3 font-medium">Type</th><th class="py-2 pr-3 font-medium">For</th>' +
+                    '<th class="py-2 pr-3 font-medium">Due</th><th class="py-2 pr-3 font-medium text-right">Amount</th>' +
+                    '<th class="py-2 pr-3 font-medium text-right">Paid</th><th class="py-2 pr-3 font-medium text-right">Left</th><th class="py-2 font-medium">Status</th>' +
+                "</tr></thead><tbody class=\"divide-y divide-slate-100 dark:divide-slate-700/50\">" +
+                rows.map(function (d) {
+                    const status = debtStatus(d);
+                    return "<tr>" +
+                        '<td class="py-2.5 pr-3 font-medium text-slate-900 dark:text-slate-100">' + escapeText(d.personName) + "</td>" +
+                        '<td class="py-2.5 pr-3 text-slate-600 dark:text-slate-300">' + (d.direction === "i_owe" ? "I owe" : "Owed to me") + "</td>" +
+                        '<td class="py-2.5 pr-3 text-slate-600 dark:text-slate-300">' + escapeText(DEBT_FOR[d.category] || "-") + "</td>" +
+                        '<td class="py-2.5 pr-3 text-slate-600 dark:text-slate-300 whitespace-nowrap">' + escapeText(d.dueDate || "-") + "</td>" +
+                        '<td class="py-2.5 pr-3 text-right whitespace-nowrap">' + formatNaira(d.amount) + "</td>" +
+                        '<td class="py-2.5 pr-3 text-right whitespace-nowrap">' + formatNaira(d.amountPaid) + "</td>" +
+                        '<td class="py-2.5 pr-3 text-right font-semibold whitespace-nowrap">' + formatNaira(d.remaining) + "</td>" +
+                        '<td class="py-2.5 font-medium ' + statusColor[status] + '">' + status + "</td></tr>";
+                }).join("") +
+            "</tbody></table></div>";
+    }
+
+    // =================================
     // INITIAL REPORT
     // =================================
 
     loadTransactions();
+    loadDebtsReport();
 
 });

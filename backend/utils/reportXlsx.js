@@ -5,7 +5,7 @@ const GREEN = "FF16A34A";
 const NAVY = "FF0F172A";
 const MONEY = '"₦"#,##0.00';
 
-// Builds an .xlsx file (as a Buffer) with two sheets: Summary and Transactions.
+// Builds an .xlsx file (as a Buffer) with three sheets: Summary, Transactions and Debts.
 async function buildXlsx({ user, report }) {
     const wb = new ExcelJS.Workbook();
     wb.creator = "CashBook";
@@ -117,6 +117,69 @@ async function buildXlsx({ user, report }) {
             sm.getCell(row, 3).value = c.percent / 100;
             sm.getCell(row, 3).numFmt = "0.0%";
         });
+    }
+
+    // ---------------- Debts ----------------
+    const debts = report.debts;
+
+    if (debts) {
+        // Short summary under the categories on the Summary sheet
+        const base = 15 + Math.max(report.categories.length, 1) + 2;
+        sm.getCell("A" + base).value = "Debts (as of " + prettyDate(debts.asOf) + ")";
+        sm.getCell("A" + base).font = { bold: true, size: 13 };
+
+        const lines = [
+            ["Owed to you (still unpaid)", debts.owedToMe.outstanding],
+            ["You owe (still unpaid)", debts.iOwe.outstanding]
+        ];
+        lines.forEach(([label, value], i) => {
+            sm.getCell("A" + (base + 1 + i)).value = label;
+            sm.getCell("A" + (base + 1 + i)).font = { bold: true };
+            sm.getCell("B" + (base + 1 + i)).value = value;
+            sm.getCell("B" + (base + 1 + i)).numFmt = MONEY;
+        });
+        sm.getCell("A" + (base + 3)).value = "Overdue debts";
+        sm.getCell("A" + (base + 3)).font = { bold: true };
+        sm.getCell("B" + (base + 3)).value = debts.overdueCount;
+
+        const ds = wb.addWorksheet("Debts", { views: [{ state: "frozen", ySplit: 1 }] });
+        ds.columns = [
+            { header: "Person", key: "person", width: 26 },
+            { header: "Type", key: "direction", width: 14 },
+            { header: "What for", key: "category", width: 16 },
+            { header: "Date", key: "date", width: 13 },
+            { header: "Due date", key: "dueDate", width: 13 },
+            { header: "Amount", key: "amount", width: 16, style: { numFmt: MONEY } },
+            { header: "Paid", key: "paid", width: 16, style: { numFmt: MONEY } },
+            { header: "Remaining", key: "remaining", width: 16, style: { numFmt: MONEY } },
+            { header: "Status", key: "status", width: 11 },
+            { header: "Note", key: "note", width: 36 }
+        ];
+
+        const dh = ds.getRow(1);
+        dh.font = { bold: true, color: { argb: "FFFFFFFF" } };
+        dh.fill = { type: "pattern", pattern: "solid", fgColor: { argb: NAVY } };
+        dh.alignment = { vertical: "middle" };
+        dh.height = 22;
+
+        debts.rows.forEach((r) => {
+            const row = ds.addRow({
+                person: r.person,
+                direction: r.direction === "i_owe" ? "I owe" : "Owed to me",
+                category: r.category,
+                date: r.date,
+                dueDate: r.dueDate,
+                amount: r.amount,
+                paid: r.paid,
+                remaining: r.remaining,
+                status: r.status,
+                note: r.note
+            });
+            if (r.status === "Overdue") row.getCell("status").font = { bold: true, color: { argb: "FFDC2626" } };
+            if (r.status === "Paid") row.getCell("status").font = { color: { argb: GREEN } };
+        });
+
+        if (debts.rows.length) ds.autoFilter = { from: "A1", to: "J" + (debts.rows.length + 1) };
     }
 
     return Buffer.from(await wb.xlsx.writeBuffer());

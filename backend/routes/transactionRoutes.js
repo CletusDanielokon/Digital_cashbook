@@ -1,6 +1,7 @@
 const express = require("express");
 const Transaction = require("../models/Transaction");
 const protect = require("../middleware/authMiddleware");
+const { ownedAttachmentId, removeAttachment } = require("../utils/attachments");
 
 const router = express.Router();
 
@@ -34,6 +35,9 @@ router.post("/", protect, async (req, res) => {
             });
         }
 
+        // Optional teller / receipt picture
+        const attachment = await ownedAttachmentId(req.userId, req.body.attachment);
+
         // Create transaction for logged-in user
         const transaction = await Transaction.create({
             user: req.userId,
@@ -42,7 +46,8 @@ router.post("/", protect, async (req, res) => {
             date,
             time,
             category,
-            type
+            type,
+            attachment: attachment || null
         });
 
         res.status(201).json({
@@ -52,6 +57,8 @@ router.post("/", protect, async (req, res) => {
 
     } catch (error) {
         console.error("Create transaction error:", error.message);
+
+        if (error.status) return res.status(error.status).json({ message: error.message });
 
         res.status(500).json({
             message: "Server error while creating transaction."
@@ -107,19 +114,26 @@ router.put("/:id", protect, async (req, res) => {
             });
         }
 
+        const changes = { description, amount, date, time, category, type };
+
+        // Picture: not mentioned = keep, null = remove, an id = replace
+        const attachment = await ownedAttachmentId(req.userId, req.body.attachment);
+        let oldAttachment = null;
+
+        if (attachment !== undefined) {
+            const existing = await Transaction.findOne({ _id: req.params.id, user: req.userId });
+            if (existing) {
+                oldAttachment = existing.attachment ? String(existing.attachment) : null;
+                changes.attachment = attachment;
+            }
+        }
+
         const transaction = await Transaction.findOneAndUpdate(
             {
                 _id: req.params.id,
                 user: req.userId
             },
-            {
-                description,
-                amount,
-                date,
-                time,
-                category,
-                type
-            },
+            changes,
             {
                 new: true,
                 runValidators: true
@@ -132,6 +146,11 @@ router.put("/:id", protect, async (req, res) => {
             });
         }
 
+        // The old picture is no longer used
+        if (oldAttachment && oldAttachment !== attachment) {
+            await removeAttachment(req.userId, oldAttachment);
+        }
+
         res.json({
             message: "Transaction updated successfully!",
             transaction
@@ -142,6 +161,8 @@ router.put("/:id", protect, async (req, res) => {
             "Update transaction error:",
             error.message
         );
+
+        if (error.status) return res.status(error.status).json({ message: error.message });
 
         res.status(500).json({
             message: "Unable to update transaction."
@@ -165,6 +186,8 @@ router.delete("/:id", protect, async (req, res) => {
                 message: "Transaction not found."
             });
         }
+
+        await removeAttachment(req.userId, transaction.attachment);
 
         res.json({
             message: "Transaction deleted successfully!"

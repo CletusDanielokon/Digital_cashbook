@@ -17,6 +17,20 @@ const paymentSchema = new mongoose.Schema(
             trim: true,
             default: "",
             maxlength: 300
+        },
+
+        // Optional photo of the teller or receipt for this payment
+        attachment: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Attachment",
+            default: null
+        },
+
+        // The transaction that was recorded automatically for this payment (if the user chose that)
+        transaction: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Transaction",
+            default: null
         }
     },
     { timestamps: true }
@@ -85,6 +99,13 @@ const debtSchema = new mongoose.Schema(
         dueDate: {
             type: String,
             default: ""
+        },
+
+        // Optional photo of the teller or receipt for the debt itself
+        attachment: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Attachment",
+            default: null
         },
 
         payments: [paymentSchema]

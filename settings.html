@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+    <script src="lock.js"></script>
     <title>CashBook - Settings</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -75,6 +76,11 @@
         #sidebar nav::-webkit-scrollbar { display: none; }
     </style>
     <script src="tour.js" defer></script>
+    <!-- Installable app (Add to Home screen) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#22c55e">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <script src="pwa.js" defer></script>
 </head>
 
 <body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300 antialiased overflow-x-hidden">
@@ -220,6 +226,19 @@
                                 </div>
                             </div>
                             <button type="button" id="password-open-btn" onclick="openPasswordModal()" class="btn-outline h-10 shrink-0">Change</button>
+                        </div>
+                        <div id="applock-section" class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-4 min-w-0">
+                                <div class="badge-icon w-11 h-11 shrink-0 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200"><i class="fa-solid fa-key"></i></div>
+                                <div class="min-w-0">
+                                    <p class="font-medium text-slate-900 dark:text-white">App lock (PIN)</p>
+                                    <p id="applock-status" class="text-sm text-slate-500 dark:text-slate-400">Ask for a PIN when CashBook is opened on this device.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button type="button" id="applock-change" class="btn-outline h-10 hidden">Change</button>
+                                <button type="button" id="applock-main" class="btn-outline h-10">Set up</button>
+                            </div>
                         </div>
                         <div class="flex items-center gap-4 min-w-0">
                             <div class="badge-icon w-11 h-11 shrink-0 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200"><i class="fa-brands fa-google"></i></div>
@@ -434,6 +453,43 @@
                 <div class="flex gap-3">
                     <button type="button" id="verify-resend" class="btn-outline flex-1" disabled>Resend code</button>
                     <button type="submit" id="verify-submit" class="btn-primary flex-1">Verify</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="applock-modal" role="dialog" aria-modal="true" aria-labelledby="applock-title" class="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-[60] hidden items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 w-full max-w-md max-h-[92vh] overflow-y-auto rounded-xl shadow-xl text-slate-800 dark:text-slate-100">
+            <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-9 h-9 shrink-0 rounded-lg bg-green/10 text-green flex items-center justify-center"><i class="fa-solid fa-key"></i></div>
+                    <h3 id="applock-title" class="text-lg font-semibold leading-tight truncate">Set up PIN</h3>
+                </div>
+                <button type="button" data-applock-close class="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-green/30" aria-label="Close"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <form id="applock-form" class="p-5 space-y-4" autocomplete="off">
+                <p id="applock-message" class="text-sm text-slate-500 dark:text-slate-400"></p>
+
+                <div id="applock-current-wrap" class="hidden">
+                    <label for="applock-current" class="field-label">Current PIN</label>
+                    <input type="password" id="applock-current" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" class="field">
+                </div>
+
+                <div id="applock-new-wrap" class="space-y-4">
+                    <div>
+                        <label for="applock-new" class="field-label">New PIN (4 to 6 digits)</label>
+                        <input type="password" id="applock-new" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password" class="field">
+                    </div>
+                    <div>
+                        <label for="applock-confirm" class="field-label">Confirm PIN</label>
+                        <input type="password" id="applock-confirm" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="new-password" class="field">
+                    </div>
+                </div>
+
+                <div class="flex gap-3 pt-1">
+                    <button type="button" data-applock-close class="btn-outline flex-1">Cancel</button>
+                    <button type="submit" id="applock-save" class="btn-primary flex-1">Save PIN</button>
                 </div>
             </form>
         </div>

@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+    <script src="lock.js"></script>
     <title>CashBook - Budget &amp; Goals</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -91,6 +92,11 @@
         #sidebar nav::-webkit-scrollbar { display: none; }
     </style>
     <script src="tour.js" defer></script>
+    <!-- Installable app (Add to Home screen) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#22c55e">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <script src="pwa.js" defer></script>
 </head>
 
 <body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300 antialiased overflow-x-hidden">

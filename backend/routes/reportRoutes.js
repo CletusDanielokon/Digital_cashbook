@@ -1,8 +1,9 @@
 const express = require("express");
 const User = require("../models/user");
 const Transaction = require("../models/Transaction");
+const Debt = require("../models/Debt");
 const protect = require("../middleware/authMiddleware");
-const { build, isRealDate } = require("../utils/reportData");
+const { build, buildDebts, isRealDate } = require("../utils/reportData");
 const buildXlsx = require("../utils/reportXlsx");
 const writePdf = require("../utils/reportPdf");
 
@@ -50,6 +51,7 @@ router.get("/export", async (req, res) => {
 
         const transactions = await Transaction.find(query).sort({ date: 1, time: 1 });
         const report = build(transactions, from, to);
+        report.debts = buildDebts(await Debt.find({ user: req.userId }).sort({ createdAt: 1 }));
 
         const stamp = (from || "start") + "_to_" + (to || "today");
         const baseName = "CashBook-report-" + stamp;
